@@ -20,6 +20,7 @@ router.post("/", async (req, res) => {
       !title ||
       !category ||
       !location ||
+      !location.address||
       typeof location.latitude !== "number" ||
       typeof location.longitude !== "number" ||
       !reportedBy

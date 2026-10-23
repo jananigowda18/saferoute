@@ -276,42 +276,357 @@ $("#voice").addEventListener("click", () => {
 });
 
 /* Passenger demo actions: never claim a real route or emergency service is active. */
-$("#start").addEventListener("click", async () => {
-  $("#alertbox").style.display = "block";
-  await loadRoadAlerts();
-  $("#passSummary").textContent = cachedReports.length
-    ? `${cachedReports.length} saved road report(s) available. Review the report list below; this is not live traffic or a verified delay estimate.`
-    : "No saved road reports were found. This page does not have live traffic data.";
-  $("#routeNote").textContent = `Route illustration for ${$("#from").value || "your origin"} to ${$("#to").value || "your destination"}. This is not turn-by-turn navigation.`;
-});
-let alternateShown = false;
-$("#avoid").addEventListener("click", () => {
-  alternateShown = !alternateShown;
-  $("#rA").setAttribute("opacity", alternateShown ? ".25" : "1");
-  $("#rB").setAttribute("opacity", alternateShown ? "1" : "0");
-  $("#routeNote").textContent = alternateShown
-    ? "Illustrative alternative shown. This is not a verified route recommendation."
-    : "Illustrative primary route shown. This is not a live navigation map.";
+/* Passenger route planner */
+const ROUTE_API_URL = "http://localhost:5000/api/routes";
+
+let passengerRoutes = [];
+let activeRouteIndex = 0;
+
+function setPassengerText(id, message) {
+  const element = document.getElementById(id);
+  if (element) element.textContent = message;
+}
+
+function renderRouteSummary(route) {
+  setPassengerText("routeDistance",
+    route.distance != null ? `${route.distance} km` : "Unavailable");
+
+  setPassengerText("routeDuration",
+    route.duration != null ? `${route.duration} min` : "Unavailable");
+
+  setPassengerText("routeIncidentCount",
+    route.incidentCount != null ? route.incidentCount : "Unavailable");
+
+  setPassengerText(
+    "routeNote",
+    "Route information depends on the routing service and available community reports. Verify conditions before travelling."
+  );
+}
+
+function renderAlternativeRoutes() {
+  const container = document.getElementById("alternativeRoutes");
+  if (!container) return;
+
+  if (!passengerRoutes.length) {
+    container.textContent = "No alternative routes available.";
+    return;
+  }
+
+  container.innerHTML = passengerRoutes.map((route, index) => `
+    <button
+      type="button"
+      class="btn ${index === activeRouteIndex ? "" : "alt"}"
+      data-route-index="${index}"
+      style="margin:5px"
+    >
+      Route ${index + 1}
+      ${route.distance != null ? `· ${escapeHTML(route.distance)} km` : ""}
+    </button>
+  `).join("");
+
+  container.querySelectorAll("[data-route-index]").forEach(button => {
+    button.addEventListener("click", () => {
+      activeRouteIndex = Number(button.dataset.routeIndex);
+      renderRouteSummary(passengerRoutes[activeRouteIndex]);
+      renderAlternativeRoutes();
+    });
+  });
+}
+
+function renderMapLink(from, to) {
+  const container = document.getElementById("routeMap");
+  if (!container) return;
+
+  const link = document.createElement("a");
+  link.href =
+    "https://www.google.com/maps/dir/" +
+    encodeURIComponent(from) + "/" +
+    encodeURIComponent(to);
+
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = "Open directions in Google Maps";
+  link.className = "btn";
+  container.replaceChildren(link);
+}
+
+async function findPassengerRoutes() {
+  const from = document.getElementById("from")?.value.trim();
+  const to = document.getElementById("to")?.value.trim();
+
+  const alertBox = document.getElementById("alertbox");
+  if (alertBox) alertBox.style.display = "block";
+
+  if (!from || !to) {
+    setPassengerText("routeMessage", "Please enter both starting point and destination.");
+    return;
+  }
+
+  const startButton = document.getElementById("start");
+  if (startButton) {
+    startButton.disabled = true;
+    startButton.textContent = "Finding routes...";
+  }
+
+  setPassengerText("routeMessage", "Loading saved reports and requesting route details...");
+  setPassengerText("passSummary", "Checking available community reports...");
+
+  try {
+    await loadRoadAlerts();
+
+    setPassengerText(
+      "passSummary",
+      `${cachedReports.length} saved community report(s) loaded. Reports may not be verified or located directly along your route.`
+    )
+
+    
+function renderMapLink(from, to) {
+  const container = document.getElementById("routeMap");
+  if (!container) return;
+
+  const map = document.createElement("iframe");
+
+  const mapUrl = new URL("https://maps.google.com/maps");
+  mapUrl.searchParams.set("output", "embed");
+  mapUrl.searchParams.set("saddr", from);
+  mapUrl.searchParams.set("daddr", to);
+
+  map.src = mapUrl.toString();
+  map.title = `Route from ${from} to ${to}`;
+  map.width = "100%";
+  map.height = "400";
+  map.style.border = "0";
+  map.style.borderRadius = "16px";
+  map.loading = "lazy";
+  map.allowFullscreen = true;
+
+  container.replaceChildren(map);
+  container.style.display = "block";
+}
+const from = document.getElementById("from").value.trim();
+const to = document.getElementById("to").value.trim();
+
+if (!from || !to) {
+  alert("Please enter both starting point and destination.");
+  return;
+}
+
+renderMapLink(from, to);
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || `Route request failed (${response.status})`);
+    }
+
+    if (!Array.isArray(result.routes) || result.routes.length === 0) {
+      throw new Error("The routing service returned no routes.");
+    }
+
+    passengerRoutes = result.routes;
+    activeRouteIndex = 0;
+
+    renderRouteSummary(passengerRoutes[activeRouteIndex]);
+    renderAlternativeRoutes();
+
+    setPassengerText(
+      "routeMessage",
+      "Route results loaded. Check the route details and verify current road conditions before travelling."
+    );
+
+    setPassengerText(
+      "routeSummary",
+      `${passengerRoutes.length} route option(s) returned for ${from} to ${to}.`
+    );
+  } catch (error) {
+    console.error("Passenger route error:", error);
+
+    passengerRoutes = [];
+    activeRouteIndex = 0;
+
+    setPassengerText("routeDistance", "Unavailable");
+    setPassengerText("routeDuration", "Unavailable");
+    setPassengerText("routeIncidentCount", "Unavailable");
+    setPassengerText("routeSummary", "No route results available.");
+    setPassengerText(
+      "routeMessage",
+      "Could not load route details. Check that your backend is running and the POST /api/routes endpoint is implemented."
+    );
+
+    const alternatives = document.getElementById("alternativeRoutes");
+    if (alternatives) alternatives.textContent = "Alternative routes unavailable.";
+
+    setPassengerText(
+      "routeNote",
+      "Directions can be opened in Google Maps, but this page could not calculate route details."
+    );
+  } finally {
+    if (startButton) {
+      startButton.disabled = false;
+      startButton.textContent = "Find routes";
+    }
+  }
+}
+
+document.getElementById("start")?.addEventListener("click", findPassengerRoutes);
+
+document.getElementById("avoid")?.addEventListener("click", () => {
+  if (passengerRoutes.length > 1) {
+    activeRouteIndex = (activeRouteIndex + 1) % passengerRoutes.length;
+    renderRouteSummary(passengerRoutes[activeRouteIndex]);
+    renderAlternativeRoutes();
+  } else {
+    setPassengerText(
+      "routeMessage",
+      "No alternative route is available yet. Find routes first."
+    );
+  }
 });
 
-/* Demo-only employer dashboard. */
-const employeeDemo = [
-  ["Example employee 1","Mangaluru–Udupi","Traffic","35 min","Demo","Example row only. No location tracking or employee data is connected."],
-  ["Example employee 2","Ullal–Mangaluru","Normal","0 min","Demo","Example row only. No location tracking or employee data is connected."],
-  ["Example employee 3","Bantwal–Mangaluru","Road report","60 min","Demo","Example row only. No location tracking or employee data is connected."]
-];
-$("#et").innerHTML = employeeDemo.map((row,index) => `
-  <tr>
-    <td><button class="btn alt employee-detail" data-i="${index}" style="padding:4px 10px">${escapeHTML(row[0])}</button></td>
-    <td>${escapeHTML(row[1])}</td>
-    <td><span class="tag ${row[2] === "Normal" ? "" : "a"}">${escapeHTML(row[2])}</span></td>
-    <td>${escapeHTML(row[3])}</td><td>${escapeHTML(row[4])}</td>
-  </tr>
-`).join("");
-$$(".employee-detail").forEach(button => button.addEventListener("click", () => {
-  $("#ev").textContent = employeeDemo[Number(button.dataset.i)][5];
-}));
 
+
+/* Employee Travel Dashboard */
+
+const employeeTravelForm =
+  document.getElementById("employeeTravelForm");
+
+const employeeTable = document.getElementById("et");
+const employeeDetails = document.getElementById("ev");
+const employeeAlerts = document.getElementById("employeeRoadAlerts");
+
+let employeeJourneys = JSON.parse(
+  localStorage.getItem("employeeJourneys") || "[]"
+);
+
+function escapeEmployeeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[char]);
+}
+
+function renderEmployeeJourneys() {
+  if (!employeeTable) return;
+
+  employeeTable.innerHTML = employeeJourneys.map((journey, index) => `
+    <tr data-journey-index="${index}" style="cursor:pointer">
+      <td>${escapeEmployeeHtml(journey.name)}</td>
+      <td>${escapeEmployeeHtml(journey.from)} → ${escapeEmployeeHtml(journey.to)}</td>
+      <td>${escapeEmployeeHtml(journey.status)}</td>
+      <td>Not available</td>
+      <td>User entry</td>
+    </tr>
+  `).join("");
+
+  if (employeeJourneys.length === 0) {
+    employeeTable.innerHTML =
+      '<tr><td colspan="5">No employee journeys added yet.</td></tr>';
+  }
+}
+
+function showEmployeeRoadAlerts(journey) {
+  if (!employeeAlerts) return;
+
+  // Use the existing road reports already loaded by your app.
+  const reports = Array.isArray(cachedReports) ? cachedReports : [];
+
+  const routeWords = [journey.from, journey.to]
+    .join(" ")
+    .toLowerCase()
+    .split(/[\s,–—-]+/)
+    .filter(word => word.length > 2);
+
+  const matches = reports.filter(report => {
+    const location = typeof report.location === "string"
+      ? report.location
+      : report.location?.address || "";
+
+    const reportText = [
+      location,
+      report.title,
+      report.description,
+      report.category
+    ].join(" ").toLowerCase();
+
+    return routeWords.some(word => reportText.includes(word));
+  });
+
+  if (matches.length === 0) {
+    employeeAlerts.textContent =
+      "No matching reports found. This does not guarantee that the route is clear.";
+    return;
+  }
+
+  employeeAlerts.innerHTML = matches.map(report => {
+    const location = typeof report.location === "string"
+      ? report.location
+      : report.location?.address || "Location not specified";
+
+    return `
+      <div class="employee-alert-item">
+        <strong>${escapeEmployeeHtml(report.title || report.category || "Road incident")}</strong>
+        <p>${escapeEmployeeHtml(location)}</p>
+        <p>${escapeEmployeeHtml(report.severity || "Severity not specified")}</p>
+      </div>
+    `;
+  }).join("");
+}
+
+if (employeeTravelForm) {
+  employeeTravelForm.addEventListener("submit", function(event) {
+    event.preventDefault();
+
+    const journey = {
+      id: Date.now(),
+      name: document.getElementById("employeeName").value.trim(),
+      from: document.getElementById("travelFrom").value.trim(),
+      to: document.getElementById("travelTo").value.trim(),
+      mode: document.getElementById("travelMode").value,
+      status: document.getElementById("travelStatus").value
+    };
+
+    if (!journey.name || !journey.from || !journey.to) {
+      alert("Please enter the employee name and journey details.");
+      return;
+    }
+
+    employeeJourneys.push(journey);
+    localStorage.setItem(
+      "employeeJourneys",
+      JSON.stringify(employeeJourneys)
+    );
+
+    renderEmployeeJourneys();
+    showEmployeeRoadAlerts(journey);
+
+    employeeTravelForm.reset();
+    alert("Employee journey added successfully!");
+  });
+}
+
+if (employeeTable) {
+  employeeTable.addEventListener("click", function(event) {
+    const row = event.target.closest("tr[data-journey-index]");
+    if (!row) return;
+
+    const journey = employeeJourneys[
+      Number(row.dataset.journeyIndex)
+    ];
+    if (!journey || !employeeDetails) return;
+
+    employeeDetails.textContent =
+      `Employee: ${journey.name} | ` +
+      `Route: ${journey.from} to ${journey.to} | ` +
+      `Mode: ${journey.mode} | Status: ${journey.status}`;
+
+    showEmployeeRoadAlerts(journey);
+  });
+}
+
+renderEmployeeJourneys();
 /* Illustrative chart; saved category table below is populated from MongoDB. */
 const demoMonthly = [["Jan",8],["Feb",11],["Mar",14],["Apr",19],["May",17]];
 $("#ch").innerHTML = demoMonthly.map((item,index) => `

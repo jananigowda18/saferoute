@@ -58,47 +58,147 @@
             </div>
         </section>
 
-        <section id="pass">
-            <h2>Passenger</h2>
-            <div class="grid">
-                <div class="card">
-                    <label class="field" for="from">From</label><input type="text" id="from" value="Mangaluru">
-                    <label class="field" for="to">To</label><input type="text" id="to" value="Udupi">
-                    <button class="btn" id="start">Review road reports</button>
-                    <div id="alertbox" class="card alert" style="display:none;margin-top:14px">
-                        <span class="tag r">Reported road incidents</span>
-                        <p id="passSummary" style="margin-top:8px">Loading reports...</p>
-                    </div>
+        
+<section id="pass" class="passenger-section">
+    <div class="passenger-header">
+        <div>
+            <span class="eyebrow">SMART JOURNEY PLANNER</span>
+            <h2>Plan your journey</h2>
+            <p class="muted">Check road incidents and compare routes before travelling.</p>
+        </div>
+        <span class="tag">RoadAlert Live Updates</span>
+    </div>
+
+    <div class="grid passenger-grid">
+
+        <!-- Route Search -->
+        <div class="card route-search-card">
+            <h3><i class="fa-solid fa-route"></i> Your journey</h3>
+
+            <label class="field" for="from">Starting point</label>
+            <input
+                type="text"
+                id="from"
+                value="Mangaluru, Karnataka"
+                placeholder="Enter starting location"
+                autocomplete="street-address"
+            >
+
+            <label class="field" for="to">Destination</label>
+            <input
+                type="text"
+                id="to"
+                value="Udupi, Karnataka"
+                placeholder="Enter destination"
+                autocomplete="street-address"
+            >
+
+            <button class="btn" id="start" type="button">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                Find Routes & Road Reports
+            </button>
+
+            <div id="alertbox" class="card alert"
+                 style="display:none;margin-top:14px">
+                <span class="tag r">Road Incident Summary</span>
+                <p id="passSummary" style="margin-top:8px">
+                    Loading road reports...
+                </p>
+            </div>
+
+            <p id="routeMessage" class="muted" role="status"
+               aria-live="polite">
+                Enter your journey details to check available routes.
+            </p>
+        </div>
+
+        <!-- Route Results -->
+        <div class="card route-results-card">
+            <div class="section-heading">
+                <div>
+                    <h3>Journey overview</h3>
+                    <p class="muted">Route distance and estimated travel time</p>
                 </div>
-                <div class="card">
-                    <h3>Route illustration</h3>
-                    <svg viewBox="0 0 360 300" role="img" aria-label="Illustrative route between Mangaluru and Udupi">
-                        <rect width="360" height="300" fill="#111923" rx="8" />
-                        <path d="M30 260 C90 230 110 170 170 150 S290 90 330 40" stroke="#ff5267" stroke-width="7"
-                            fill="none" id="rA" />
-                        <path d="M30 260 C60 200 40 130 110 110 S250 40 330 40" stroke="#20e3a2" stroke-width="6"
-                            fill="none" stroke-dasharray="2 9" stroke-linecap="round" id="rB" opacity="0" />
-                        <circle cx="30" cy="260" r="8" fill="#f2f5f8" />
-                        <circle cx="330" cy="40" r="8" fill="#f2f5f8" />
-                        <g id="pin">
-                            <circle cx="170" cy="150" r="15" fill="#ff5267" opacity=".25" />
-                            <circle cx="170" cy="150" r="7" fill="#ff5267" />
-                        </g>
-                        <text x="40" y="282" font-size="12" fill="#dce5ef">Mangaluru</text><text x="270" y="28"
-                            font-size="12" fill="#dce5ef">Udupi</text><text x="182" y="146" font-size="12"
-                            fill="#dce5ef">Incident demo</text>
-                    </svg>
-                    <p id="routeNote" class="muted">This illustration is not a live navigation map.</p>
-                    <div class="chips"><span class="tag">Normal</span><span class="tag a">Reported issue</span><span
-                            class="tag r">High severity</span></div>
-                    <button class="btn alt" id="avoid">Toggle illustrative alternative</button>
+                <i class="fa-solid fa-map-location-dot"></i>
+            </div>
+
+            <div id="routeSummary" class="route-summary">
+                <div class="route-stat">
+                    <span class="muted">Distance</span>
+                    <strong id="routeDistance">--</strong>
+                </div>
+
+                <div class="route-stat">
+                    <span class="muted">Estimated time</span>
+                    <strong id="routeDuration">--</strong>
+                </div>
+
+                <div class="route-stat">
+                    <span class="muted">Road incidents</span>
+                    <strong id="routeIncidentCount">--</strong>
                 </div>
             </div>
-            <h3 style="margin:22px 0 10px">Recent road reports</h3>
-            <div id="passReports" class="grid">
-                <div class="card">Loading reports…</div>
+
+            <div id="routeMap" class="route-map">
+                <div class="map-placeholder">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                    <h3>Your route will appear here</h3>
+                    <p>Search for a journey to view route information.</p>
+                </div>
             </div>
-        </section>
+
+            <p id="routeNote" class="muted">
+                Route and traffic information will appear after the routing
+                service is connected.
+            </p>
+
+            <button class="btn alt" id="avoid" type="button">
+                <i class="fa-solid fa-code-branch"></i>
+                Compare Alternative Routes
+            </button>
+        </div>
+    </div>
+
+    <!-- Alternative Routes -->
+    <div class="passenger-block">
+        <div class="section-heading">
+            <div>
+                <h3>Alternative routes</h3>
+                <p class="muted">Compare available options for your journey.</p>
+            </div>
+        </div>
+
+        <div id="alternativeRoutes" class="grid">
+            <div class="card">
+                <p class="muted">
+                    Search for a journey to view alternative routes.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Road Incidents -->
+    <div class="passenger-block">
+        <div class="section-heading">
+            <div>
+                <h3>Road incidents</h3>
+                <p class="muted">
+                    Review community reports before choosing your route.
+                </p>
+            </div>
+
+            <button class="btn alt" id="refreshReports" type="button">
+                <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+        </div>
+
+        <div id="passReports" class="grid">
+            <div class="card">Loading road reports...</div>
+        </div>
+    </div>
+</section>
+
+
 
         <section id="rep">
             <h2>Report a road problem</h2>
@@ -164,42 +264,46 @@
         </section>
 
         <section id="emp">
-            <h2>Employer dashboard</h2>
-            <div class="grid">
-                <div class="card" style="grid-column:1/-1">
-                    <h3>Example travel status (demo data)</h3>
-                    <div style="overflow-x:auto">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Employee</th>
-                                    <th>Route</th>
-                                    <th>Status</th>
-                                    <th>Delay</th>
-                                    <th>Evidence</th>
-                                </tr>
-                            </thead>
-                            <tbody id="et"></tbody>
-                        </table>
-                    </div>
-                    <p id="ev" class="card" style="margin-top:12px">Select a row to see the demo explanation. No
-                        employee tracking is active.</p>
-                </div>
-                <div class="card">
-                    <h3>Privacy principles</h3>
-                    <div class="sw"><span>Tracking only after clear opt-in</span><span class="tag">Recommended</span>
-                    </div>
-                    <div class="sw"><span>Visible tracking status</span><span class="tag">Recommended</span></div>
-                    <div class="sw"><span>Emergency sharing only with consent</span><span class="tag">Recommended</span>
-                    </div>
-                    <p class="muted" style="margin-top:8px;font-size:14px">This dashboard uses example data only. It
-                        does not track people or send alerts.</p>
-                </div>
-                <div class="card alert">
-                    <h3>Travel alert (demo)</h3>
-                    <p>Example: road reports may affect travel times. Check current conditions before travelling.</p>
-                </div>
-            </div>
+            <div class="card employee-travel-card">
+  <h2>Employee Travel Dashboard</h2>
+  <p>Register an employee's journey and check available road alerts.</p>
+
+  <form id="employeeTravelForm">
+    <label for="employeeName">Employee name</label>
+    <input id="employeeName" required placeholder="Enter employee name">
+
+    <label for="travelFrom">Starting point</label>
+    <input id="travelFrom" required placeholder="e.g. Mangaluru">
+
+    <label for="travelTo">Destination</label>
+    <input id="travelTo" required placeholder="e.g. Udupi">
+
+    <label for="travelMode">Travel mode</label>
+    <select id="travelMode" required>
+      <option value="Bus">Public transport — Bus</option>
+      <option value="Bike">Own vehicle — Bike</option>
+      <option value="Car">Own vehicle — Car</option>
+    </select>
+
+    <label for="travelStatus">Travel status</label>
+    <select id="travelStatus" required>
+      <option value="Planning">Planning</option>
+      <option value="On the way">On the way</option>
+      <option value="Delayed">Delayed</option>
+      <option value="Completed">Completed</option>
+    </select>
+
+    <button type="submit">Add Employee Journey</button>
+  </form>
+
+  <div class="card">
+    <h3>Road Alerts for This Journey</h3>
+    <div id="employeeRoadAlerts">
+      Submit a journey to check reported road incidents.
+    </div>
+  </div>
+</div>  
+               
         </section>
 
         <section id="auth">
