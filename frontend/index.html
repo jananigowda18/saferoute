@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>RoadAlert — Know Why the Road Is Blocked</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <nav id="siteNav" aria-label="Main navigation" style="display:none">
+        <b>🛣️ RoadAlert</b>
+        <button data-v="home" aria-current="true">Home</button>
+        <button data-v="rep">Report</button>
+        <button data-v="pass">Passenger</button>
+        <button data-v="emp">Employer</button>
+        <button data-v="auth">Authority</button>
+        <button id="logoutButton" type="button">Logout</button>
+    </nav>
+
+    <main>
+        <section id="home">
+            <div class="hero">
+                <h1>Every Road Update. A Smarter Journey.</h1>
+                <p style="max-width:52ch;font-size:18px;color:var(--mute)">RoadAlert helps commuters understand reported
+                    road problems, see incident details, and consider alternatives. Reports are community-submitted and
+                    should be verified before making travel decisions.</p>
+                <div class="cta"><button class="btn" data-go="pass">Plan my trip</button><button class="btn alt"
+                        data-go="rep">Report a road problem</button></div>
+                <div class="gantry" aria-live="polite">
+                    <div class="route">NH-66 · Mangaluru → Udupi · demo display</div>
+                    <div class="vms" id="vms"></div>
+                    <div class="road" id="road" aria-hidden="true">
+                        <div class="jam"><span>Mulki</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="pipe" style="margin:22px 0">
+                <div><b>Report</b>Submit a road problem with its location and description.</div>
+                <div><b>Verify</b>Community and authority verification can be added in future.</div>
+                <div><b>Alert</b>Review reported incidents before choosing a route.</div>
+                <div><b>Analyse</b>Use saved reports to identify recurring problem areas.</div>
+            </div>
+            <div class="grid">
+                <div class="card">
+                    <h3>Commuters</h3>
+                    <p>Review road issues reported by the community.</p>
+                </div>
+                <div class="card">
+                    <h3>Employers</h3>
+                    <p>Explore a demonstration dashboard for travel coordination.</p>
+                </div>
+                <div class="card">
+                    <h3>Traffic authorities</h3>
+                    <p>Review reported hazards and identify patterns for further investigation.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="pass">
+            <h2>Passenger</h2>
+            <div class="grid">
+                <div class="card">
+                    <label class="field" for="from">From</label><input type="text" id="from" value="Mangaluru">
+                    <label class="field" for="to">To</label><input type="text" id="to" value="Udupi">
+                    <button class="btn" id="start">Review road reports</button>
+                    <div id="alertbox" class="card alert" style="display:none;margin-top:14px">
+                        <span class="tag r">Reported road incidents</span>
+                        <p id="passSummary" style="margin-top:8px">Loading reports...</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Route illustration</h3>
+                    <svg viewBox="0 0 360 300" role="img" aria-label="Illustrative route between Mangaluru and Udupi">
+                        <rect width="360" height="300" fill="#111923" rx="8" />
+                        <path d="M30 260 C90 230 110 170 170 150 S290 90 330 40" stroke="#ff5267" stroke-width="7"
+                            fill="none" id="rA" />
+                        <path d="M30 260 C60 200 40 130 110 110 S250 40 330 40" stroke="#20e3a2" stroke-width="6"
+                            fill="none" stroke-dasharray="2 9" stroke-linecap="round" id="rB" opacity="0" />
+                        <circle cx="30" cy="260" r="8" fill="#f2f5f8" />
+                        <circle cx="330" cy="40" r="8" fill="#f2f5f8" />
+                        <g id="pin">
+                            <circle cx="170" cy="150" r="15" fill="#ff5267" opacity=".25" />
+                            <circle cx="170" cy="150" r="7" fill="#ff5267" />
+                        </g>
+                        <text x="40" y="282" font-size="12" fill="#dce5ef">Mangaluru</text><text x="270" y="28"
+                            font-size="12" fill="#dce5ef">Udupi</text><text x="182" y="146" font-size="12"
+                            fill="#dce5ef">Incident demo</text>
+                    </svg>
+                    <p id="routeNote" class="muted">This illustration is not a live navigation map.</p>
+                    <div class="chips"><span class="tag">Normal</span><span class="tag a">Reported issue</span><span
+                            class="tag r">High severity</span></div>
+                    <button class="btn alt" id="avoid">Toggle illustrative alternative</button>
+                </div>
+            </div>
+            <h3 style="margin:22px 0 10px">Recent road reports</h3>
+            <div id="passReports" class="grid">
+                <div class="card">Loading reports…</div>
+            </div>
+        </section>
+
+        <section id="rep">
+            <h2>Report a road problem</h2>
+            <div class="grid">
+                <div class="card">
+                    <label class="field" for="reportType">Problem type</label>
+                    <select id="reportType" required>
+                        <option value="" selected disabled>Select a road problem</option>
+                        <option value="Accident">Accident</option>
+                        <option value="Road repair">Road repair / pothole</option>
+                        <option value="Flood">Flood / waterlogging</option>
+                        <option value="Landslide">Landslide</option>
+                        <option value="Festival">Festival / public event</option>
+                        <option value="Strike">Strike</option>
+                        <option value="VIP movement">VIP movement</option>
+                        <option value="Heavy traffic">Heavy traffic</option>
+                        <option value="Road closed">Road closed</option>
+                        <option value="Streetlight">Streetlight problem</option>
+                        <option value="Other">Other</option>
+                    </select>
+                    <label class="field" for="reportTitle">Report title</label>
+                    <input type="text" id="reportTitle" placeholder="e.g. Accident near Mulki" required>
+                    <label class="field" for="reportDescription">Description</label>
+                    <textarea id="reportDescription" placeholder="Describe the road problem"></textarea>
+                    <label class="field" for="reportAddress">Location / address</label>
+                    <input type="text" id="reportAddress" placeholder="e.g. Near State Bank bus stand, Mangaluru"
+                        required>
+                    <button class="btn alt" id="getLocation" type="button">📍 Use my device location</button>
+                    <p id="locationStatus" class="muted" role="status">Enter an address, or use your device location to
+                        fill coordinates.</p>
+                    <details style="margin-top:10px">
+                        <summary style="cursor:pointer;color:var(--sign2)">Enter coordinates manually</summary>
+                        <label class="field" for="reportLat">Latitude</label>
+                        <input type="text" id="reportLat" inputmode="decimal" placeholder="e.g. 12.9716">
+                        <label class="field" for="reportLng">Longitude</label>
+                        <input type="text" id="reportLng" inputmode="decimal" placeholder="e.g. 74.8560">
+                    </details>
+                    <label class="field" for="reportSeverity">Severity</label>
+                    <select id="reportSeverity">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                    <label class="field" for="reporterId">Reported by</label>
+                    <input type="text" id="reporterId" value="community-user" required>
+                    <label class="field" for="reportPhoto">Photo (not uploaded to server yet)</label>
+                    <input type="file" id="reportPhoto" accept="image/*" capture="environment">
+                    <div class="cta"><button class="btn" id="submit" type="button">Submit report</button><button
+                            class="btn alt" id="voice" type="button">Voice report</button></div>
+                    <p class="muted" style="margin-top:8px;font-size:13px">Device location needs browser permission. For
+                        manual locations, enter the address and coordinates in the expandable section. Photo upload is
+                        not connected yet.</p>
+                    <p id="reportMessage" class="status-message" role="status"></p>
+                </div>
+                <div class="card">
+                    <h3>Saved community reports</h3>
+                    <p id="cnt" style="font-size:40px;font-weight:700">0 reports</p>
+                    <div class="lvl" id="lv2"></div>
+                    <button class="btn alt" id="refreshReports" style="margin-top:10px">Refresh reports</button>
+                    <div id="reportList" style="margin-top:14px"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="emp">
+            <h2>Employer dashboard</h2>
+            <div class="grid">
+                <div class="card" style="grid-column:1/-1">
+                    <h3>Example travel status (demo data)</h3>
+                    <div style="overflow-x:auto">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Route</th>
+                                    <th>Status</th>
+                                    <th>Delay</th>
+                                    <th>Evidence</th>
+                                </tr>
+                            </thead>
+                            <tbody id="et"></tbody>
+                        </table>
+                    </div>
+                    <p id="ev" class="card" style="margin-top:12px">Select a row to see the demo explanation. No
+                        employee tracking is active.</p>
+                </div>
+                <div class="card">
+                    <h3>Privacy principles</h3>
+                    <div class="sw"><span>Tracking only after clear opt-in</span><span class="tag">Recommended</span>
+                    </div>
+                    <div class="sw"><span>Visible tracking status</span><span class="tag">Recommended</span></div>
+                    <div class="sw"><span>Emergency sharing only with consent</span><span class="tag">Recommended</span>
+                    </div>
+                    <p class="muted" style="margin-top:8px;font-size:14px">This dashboard uses example data only. It
+                        does not track people or send alerts.</p>
+                </div>
+                <div class="card alert">
+                    <h3>Travel alert (demo)</h3>
+                    <p>Example: road reports may affect travel times. Check current conditions before travelling.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="auth">
+            <h2>Authority dashboard</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>Demo incidents per month</h3>
+                    <svg viewBox="0 0 320 170" role="img" aria-label="Illustrative incident counts">
+                        <g id="ch"></g>
+                    </svg>
+                    <p><span class="tag a">Illustrative data, not official statistics</span></p>
+                </div>
+                <div class="card">
+                    <h3>Saved report summary</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Reports</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mt"></tbody>
+                    </table>
+                </div>
+                <div class="card" style="grid-column:1/-1">
+                    <h3>Pattern investigation</h3>
+                    <p>Use verified reports over time to investigate recurring problem locations. This demo does not
+                        make official claims or automatically recommend engineering decisions.</p>
+                    <button class="btn" id="gen" style="margin-top:10px">Refresh authority summary</button>
+                    <p id="authMessage" class="status-message" role="status"></p>
+                </div>
+            </div>
+        </section>
+
+        <section id="login" class="on">
+            <div class="card form-card">
+                <h2>Welcome back</h2>
+                <p class="muted" style="margin-bottom:18px">Login to your RoadAlert account.</p>
+                <form id="loginForm">
+                    <label class="field" for="loginEmail">Email address</label>
+                    <input type="email" id="loginEmail" placeholder="you@example.com" required autocomplete="email">
+                    <label class="field" for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" placeholder="Enter your password" required
+                        autocomplete="current-password">
+                    <button class="btn full" type="submit">Login</button>
+                    <p id="loginMessage" class="status-message" role="status"></p>
+                </form>
+                <p style="margin-top:18px">New to RoadAlert? <button class="btn alt" type="button"
+                        data-go="register">Create account</button></p>
+            </div>
+        </section>
+
+        <section id="register">
+            <div class="card form-card">
+                <h2>Create account</h2>
+                <p class="muted" style="margin-bottom:18px">Join your community and help make roads safer.</p>
+                <form id="registerForm">
+                    <label class="field" for="regName">Full name</label>
+                    <input type="text" id="regName" placeholder="Enter your name" required autocomplete="name">
+                    <label class="field" for="regEmail">Email address</label>
+                    <input type="email" id="regEmail" placeholder="you@example.com" required autocomplete="email">
+                    <label class="field" for="regRole">Account type</label>
+                    <select id="regRole" required>
+                        <option value="passenger">Passenger</option>
+                        <option value="employer">Employer</option>
+                        <option value="authority">Traffic Authority</option>
+                    </select>
+                    <label class="field" for="regPassword">Password</label>
+                    <input type="password" id="regPassword" placeholder="At least 8 characters" minlength="8" required
+                        autocomplete="new-password">
+                    <label class="field" for="regConfirm">Confirm password</label>
+                    <input type="password" id="regConfirm" placeholder="Enter password again" minlength="8" required
+                        autocomplete="new-password">
+                    <button class="btn full" type="submit">Create account</button>
+                    <p id="registerMessage" class="status-message" role="status"></p>
+                </form>
+                <p style="margin-top:18px">Already registered? <button class="btn alt" type="button"
+                        data-go="login">Login</button></p>
+
+            </div>
+        </section>
+    </main>
+    <footer>© 2026 RoadAlert · Community road-safety project.</footer>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="script.js" defer></script>
+</body>
+
+</html>
