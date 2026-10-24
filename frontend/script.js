@@ -1,691 +1,1099 @@
 const API_URL = "http://localhost:5000/api/hazards";
-const $ = selector => document.querySelector(selector);
-const $$ = selector => [...document.querySelectorAll(selector)];
+"use strict";
 
-const SESSION_KEY = "roadalert_demo_session";
-const USERS_KEY = "roadalert_demo_users";
-function currentUser() {
-  try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null"); }
-  catch { return null; }
-}
-function updateAuthUI() {
-  const user = currentUser();
-  const nav = $("#siteNav");
-  nav.style.display = user ? "flex" : "none";
-  $("main").style.display = "block";
-  if (!user) {
-    $("main").querySelectorAll("section").forEach(section => section.classList.toggle("on", ["login","register"].includes(section.id) && section.id === "login"));
-  }
-  if (user) $("#reporterId").value = user.name || user.email;
-}
-function show(view) {
-  if (!currentUser() && !["login","register"].includes(view)) view = "login";
-  $$("main section").forEach(section => section.classList.toggle("on", section.id === view));
-  $$("nav button[data-v]").forEach(button => button.setAttribute("aria-current", String(button.dataset.v === view)));
-  if (view === "pass" || view === "rep" || view === "auth") loadRoadAlerts();
-  window.scrollTo({top:0, behavior:"smooth"});
-}
-$$("nav button[data-v]").forEach(button => button.addEventListener("click", () => show(button.dataset.v)));
-$$("[data-go]").forEach(button => button.addEventListener("click", () => show(button.dataset.go)));
-$("#logoutButton").addEventListener("click", () => {
-  sessionStorage.removeItem(SESSION_KEY);
-  updateAuthUI();
-  show("login");
-  toast("You have logged out.");
-});
+/* =========================================
+   ROADALERT - SCRIPT.JS
+   Matches the latest index.html and style.css
+   ========================================= */
 
-let toastTimer;
-function toast(message) {
-  const element = $("#toast");
-  element.textContent = message;
-  element.style.display = "block";
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => element.style.display = "none", 3000);
-}
-function escapeHTML(value) {
-  return String(value ?? "").replace(/[&<>"']/g, character => ({
-    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
-  })[character]);
-}
-function formatLabel(value) {
-  return String(value ?? "").replace(/_/g, " ").replace(/\b\w/g, letter => letter.toUpperCase());
-}
-function lvl(element, count) {
-  element.innerHTML = [1,2,3,4,5,6].map(level => `<i class="${level <= count ? "f" : ""}"></i>`).join("");
-}
-function setMessage(element, message, success=false) {
-  element.textContent = message;
-  element.style.color = success ? "var(--sign2)" : "var(--red)";
-}
+const USERS_KEY = "roadalert_users";
+const AUTHORITIES_KEY = "roadalert_authorities";
+const REPORTS_KEY = "roadalert_reports";
+const SESSION_KEY = "roadalert_session";
 
-/* Hero message board: sample messages are demonstrations, not live alerts. */
-const messages = [
-  ["COMMUNITY ROAD ALERTS","Demo display · check saved reports below"],
-  ["REPORT A ROAD PROBLEM","Add details and coordinates to help others"],
-  ["CHECK BEFORE YOU TRAVEL","Community submissions may need verification"],
-  ["ROAD SAFETY STARTS HERE","Share accurate information responsibly"]
-];
-let messageIndex = 0;
-function updateMessageBoard() {
-  $("#vms").innerHTML = `${messages[messageIndex][0]}<small>${messages[messageIndex][1]}</small>`;
-  messageIndex = (messageIndex + 1) % messages.length;
-}
-updateMessageBoard();
-setInterval(updateMessageBoard, 3500);
+let currentUser = null;
+let currentLocation = null;
 
-/* Decorative traffic animation. */
-const road = $("#road");
-const carColors = ["#ffc857","#e8e8d8","#7fc8a9","#ff5267","#8ab4f8"];
-const cars = Array.from({length:14}, (_, index) => {
-  const element = document.createElement("div");
-  element.className = "car";
-  element.style.background = carColors[index % carColors.length];
-  element.style.top = index % 2 ? "50px" : "20px";
-  road.appendChild(element);
-  return {element, x:index*7 + Math.random()*5};
-});
-function animateCars() {
-  const width = road.clientWidth || 600;
-  cars.forEach(car => {
-    const position = car.x / 100;
-    const inJam = position > .5 && position < .78;
-    car.x += inJam ? .04 : .28;
-    if (car.x > 104) car.x = -4;
-    car.element.style.left = `${car.x/100*width}px`;
-  });
-  requestAnimationFrame(animateCars);
-}
-if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) animateCars();
 
-/* Backend integration: GET saved hazards and render real database records. */
-let cachedReports = [];
-async function loadRoadAlerts() {
-  try {
-    const response = await fetch(API_URL);
-    if (!response.ok) throw new Error(`Server returned ${response.status}`);
-    const reports = await response.json();
-    if (!Array.isArray(reports)) throw new Error("Unexpected response from server");
-    cachedReports = reports;
+/* =========================================
+   STORAGE HELPERS
+   ========================================= */
 
-    $("#cnt").textContent = `${reports.length} saved report${reports.length === 1 ? "" : "s"}`;
-    $("#reportList").innerHTML = reports.length ? reports.slice(0,5).map(report => `
-      <article class="card" style="margin-bottom:10px">
-        <h3>${escapeHTML(report.title)}</h3>
-        <p>${escapeHTML(report.description || "No description provided.")}</p>
-        <p class="muted">${escapeHTML(formatLabel(report.category))} · ${escapeHTML(formatLabel(report.severity))} severity</p>
-      </article>
-    `).join("") : "<p class='muted'>No saved reports yet.</p>";
-
-    $("#passReports").innerHTML = reports.length ? reports.slice(0,12).map(report => `
-      <article class="card">
-        <h3>${escapeHTML(report.title)}</h3>
-        <p>${escapeHTML(report.description || "No description provided.")}</p>
-        <p class="muted">Category: ${escapeHTML(formatLabel(report.category))}</p>
-        <p class="muted">Severity: ${escapeHTML(formatLabel(report.severity))} · Status: ${escapeHTML(formatLabel(report.status))}</p>
-        <p class="muted">Location: ${escapeHTML(report.location?.address || `${report.location?.latitude ?? "N/A"}, ${report.location?.longitude ?? "N/A"}`)}</p>
-      </article>
-    `).join("") : "<div class='card'>No saved road reports yet. Use the Report page to submit one.</div>";
-
-    const categories = {};
-    reports.forEach(report => {
-      const category = report.category || "other";
-      categories[category] = (categories[category] || 0) + 1;
-    });
-    const sortedCategories = Object.entries(categories).sort((a,b) => b[1]-a[1]);
-    $("#mt").innerHTML = sortedCategories.length
-      ? sortedCategories.map(([category,count]) => `<tr><td>${escapeHTML(formatLabel(category))}</td><td>${count}</td></tr>`).join("")
-      : "<tr><td colspan='2'>No saved reports yet</td></tr>";
-
-    $("#authMessage").textContent = `${reports.length} report(s) retrieved from the backend. Counts reflect saved reports, not official verified statistics.`;
-  } catch (error) {
-    console.error("Could not load road reports:", error);
-    $("#reportList").innerHTML = "<p class='muted'>Could not load reports. Start the backend and refresh.</p>";
-    $("#passReports").innerHTML = "<div class='card'>Unable to connect to the backend at localhost:5000. Start the server, then refresh.</div>";
-    $("#authMessage").textContent = "Could not load data. Check that the backend is running.";
-  }
-}
-$("#refreshReports").addEventListener("click", loadRoadAlerts);
-$("#gen").addEventListener("click", async () => {
-  await loadRoadAlerts();
-  toast("Authority summary refreshed from saved reports.");
-});
-
-/* Road incident report: sends a document to Express/MongoDB. */
-const categoryMap = {
-  "Accident":"other", "Road repair":"damaged_road", "Flood":"unsafe_area",
-  "Landslide":"unsafe_area", "Festival":"other", "Strike":"other",
-  "VIP movement":"other", "Heavy traffic":"other", "Road closed":"damaged_road",
-  "Streetlight":"streetlight", "Other":"other"
-};
-$("#submit").addEventListener("click", async () => {
-  const selectedValue = $("#reportType").value;
-  const title = $("#reportTitle").value.trim();
-  const reporter = $("#reporterId").value.trim();
-  const address = $("#reportAddress").value.trim();
-  const latitudeText = $("#reportLat").value.trim();
-  const longitudeText = $("#reportLng").value.trim();
-  const latitude = Number(latitudeText);
-  const longitude = Number(longitudeText);
-  const message = $("#reportMessage");
-
-  if (!selectedValue || !title || !reporter || !address) {
-    setMessage(message, "Please complete the problem type, title, location/address, and reporter name.");
-    return;
-  }
-  const hasLatitude = latitudeText !== "";
-  const hasLongitude = longitudeText !== "";
-  if (hasLatitude !== hasLongitude) {
-    setMessage(message, "Enter both latitude and longitude, or leave both blank to save the address only.");
-    return;
-  }
-  if (hasLatitude && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
-      !Number.isFinite(longitude) || longitude < -180 || longitude > 180)) {
-    setMessage(message, "Enter valid latitude (−90 to 90) and longitude (−180 to 180).");
-    return;
-  }
-
-  const description = $("#reportDescription").value.trim();
-  const location = {address};
-  if (hasLatitude && hasLongitude) {
-    location.latitude = latitude;
-    location.longitude = longitude;
-  }
-  const payload = {
-    title,
-    description,
-    category: categoryMap[selectedValue] || "other",
-    severity: $("#reportSeverity").value,
-    location,
-    reportedBy: reporter
-  };
-  const button = $("#submit");
-  button.disabled = true;
-  button.textContent = "Submitting…";
-  setMessage(message, "");
-
-  try {
-    const response = await fetch(API_URL, {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(payload)
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || `Request failed (${response.status})`);
-
-    setMessage(message, "Report saved successfully in the database.", true);
-    $("#reportTitle").value = "";
-    $("#reportDescription").value = "";
-    $("#reportAddress").value = "";
-    $("#reportLat").value = "";
-    $("#reportLng").value = "";
-    $("#reportType").value = "";
-    $("#reportPhoto").value = "";
-    await loadRoadAlerts();
-    toast("Road report saved!");
-  } catch (error) {
-    console.error("Report submission failed:", error);
-    setMessage(message, `${error.message}. Make sure node server.js is running.`);
-  } finally {
-    button.disabled = false;
-    button.textContent = "Submit report";
-  }
-});
-
-/* Optional location button. Browser permission is required. */
-$("#getLocation").addEventListener("click", () => {
-  if (!navigator.geolocation) {
-    toast("Location is not supported by this browser.");
-    return;
-  }
-  const button = $("#getLocation");
-  button.disabled = true;
-  button.textContent = "Getting location…";
-  navigator.geolocation.getCurrentPosition(position => {
-    $("#reportLat").value = position.coords.latitude.toFixed(6);
-    $("#reportLng").value = position.coords.longitude.toFixed(6);
-    $("#reportAddress").value = `Device location (${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)})`;
-    $("#locationStatus").textContent = "Device coordinates added. You can edit the address if you know the place name.";
-    button.disabled = false;
-    button.textContent = "📍 Use my location";
-    toast("Coordinates filled in.");
-  }, error => {
-    console.warn("Location permission/error:", error);
-    button.disabled = false;
-    button.textContent = "📍 Use my location";
-    $("#locationStatus").textContent = "Could not access device location. Enter an address and coordinates manually.";
-    toast("Location unavailable. Enter coordinates manually.");
-  }, {enableHighAccuracy:true, timeout:10000});
-});
-
-/* Voice input: use browser speech recognition only if supported. */
-$("#voice").addEventListener("click", () => {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    toast("Voice input is not supported in this browser. Type the description instead.");
-    return;
-  }
-  const recognition = new SpeechRecognition();
-  recognition.lang = "en-IN";
-  recognition.onresult = event => {
-    const transcript = event.results[0][0].transcript;
-    $("#reportDescription").value = ($("#reportDescription").value + " " + transcript).trim();
-    toast("Voice description added.");
-  };
-  recognition.onerror = () => toast("Voice input could not be captured. Try typing instead.");
-  recognition.start();
-});
-
-/* Passenger demo actions: never claim a real route or emergency service is active. */
-/* Passenger route planner */
-const ROUTE_API_URL = "http://localhost:5000/api/routes";
-
-let passengerRoutes = [];
-let activeRouteIndex = 0;
-
-function setPassengerText(id, message) {
-  const element = document.getElementById(id);
-  if (element) element.textContent = message;
-}
-
-function renderRouteSummary(route) {
-  setPassengerText("routeDistance",
-    route.distance != null ? `${route.distance} km` : "Unavailable");
-
-  setPassengerText("routeDuration",
-    route.duration != null ? `${route.duration} min` : "Unavailable");
-
-  setPassengerText("routeIncidentCount",
-    route.incidentCount != null ? route.incidentCount : "Unavailable");
-
-  setPassengerText(
-    "routeNote",
-    "Route information depends on the routing service and available community reports. Verify conditions before travelling."
-  );
-}
-
-function renderAlternativeRoutes() {
-  const container = document.getElementById("alternativeRoutes");
-  if (!container) return;
-
-  if (!passengerRoutes.length) {
-    container.textContent = "No alternative routes available.";
-    return;
-  }
-
-  container.innerHTML = passengerRoutes.map((route, index) => `
-    <button
-      type="button"
-      class="btn ${index === activeRouteIndex ? "" : "alt"}"
-      data-route-index="${index}"
-      style="margin:5px"
-    >
-      Route ${index + 1}
-      ${route.distance != null ? `· ${escapeHTML(route.distance)} km` : ""}
-    </button>
-  `).join("");
-
-  container.querySelectorAll("[data-route-index]").forEach(button => {
-    button.addEventListener("click", () => {
-      activeRouteIndex = Number(button.dataset.routeIndex);
-      renderRouteSummary(passengerRoutes[activeRouteIndex]);
-      renderAlternativeRoutes();
-    });
-  });
-}
-
-function renderMapLink(from, to) {
-  const container = document.getElementById("routeMap");
-  if (!container) return;
-
-  const link = document.createElement("a");
-  link.href =
-    "https://www.google.com/maps/dir/" +
-    encodeURIComponent(from) + "/" +
-    encodeURIComponent(to);
-
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  link.textContent = "Open directions in Google Maps";
-  link.className = "btn";
-  container.replaceChildren(link);
-}
-
-async function findPassengerRoutes() {
-  const from = document.getElementById("from")?.value.trim();
-  const to = document.getElementById("to")?.value.trim();
-
-  const alertBox = document.getElementById("alertbox");
-  if (alertBox) alertBox.style.display = "block";
-
-  if (!from || !to) {
-    setPassengerText("routeMessage", "Please enter both starting point and destination.");
-    return;
-  }
-
-  const startButton = document.getElementById("start");
-  if (startButton) {
-    startButton.disabled = true;
-    startButton.textContent = "Finding routes...";
-  }
-
-  setPassengerText("routeMessage", "Loading saved reports and requesting route details...");
-  setPassengerText("passSummary", "Checking available community reports...");
-
-  try {
-    await loadRoadAlerts();
-
-    setPassengerText(
-      "passSummary",
-      `${cachedReports.length} saved community report(s) loaded. Reports may not be verified or located directly along your route.`
-    )
-
-    
-function renderMapLink(from, to) {
-  const container = document.getElementById("routeMap");
-  if (!container) return;
-
-  const map = document.createElement("iframe");
-
-  const mapUrl = new URL("https://maps.google.com/maps");
-  mapUrl.searchParams.set("output", "embed");
-  mapUrl.searchParams.set("saddr", from);
-  mapUrl.searchParams.set("daddr", to);
-
-  map.src = mapUrl.toString();
-  map.title = `Route from ${from} to ${to}`;
-  map.width = "100%";
-  map.height = "400";
-  map.style.border = "0";
-  map.style.borderRadius = "16px";
-  map.loading = "lazy";
-  map.allowFullscreen = true;
-
-  container.replaceChildren(map);
-  container.style.display = "block";
-}
-const from = document.getElementById("from").value.trim();
-const to = document.getElementById("to").value.trim();
-
-if (!from || !to) {
-  alert("Please enter both starting point and destination.");
-  return;
-}
-
-renderMapLink(from, to);
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.message || `Route request failed (${response.status})`);
+function readStorage(key) {
+    try {
+        const value = JSON.parse(localStorage.getItem(key));
+        return Array.isArray(value) ? value : [];
+    } catch {
+        return [];
     }
+}
 
-    if (!Array.isArray(result.routes) || result.routes.length === 0) {
-      throw new Error("The routing service returned no routes.");
+function writeStorage(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+}
+
+function getReports() {
+    return readStorage(REPORTS_KEY);
+}
+
+function getSavedSession() {
+    try {
+        return JSON.parse(sessionStorage.getItem(SESSION_KEY));
+    } catch {
+        return null;
     }
-
-    passengerRoutes = result.routes;
-    activeRouteIndex = 0;
-
-    renderRouteSummary(passengerRoutes[activeRouteIndex]);
-    renderAlternativeRoutes();
-
-    setPassengerText(
-      "routeMessage",
-      "Route results loaded. Check the route details and verify current road conditions before travelling."
-    );
-
-    setPassengerText(
-      "routeSummary",
-      `${passengerRoutes.length} route option(s) returned for ${from} to ${to}.`
-    );
-  } catch (error) {
-    console.error("Passenger route error:", error);
-
-    passengerRoutes = [];
-    activeRouteIndex = 0;
-
-    setPassengerText("routeDistance", "Unavailable");
-    setPassengerText("routeDuration", "Unavailable");
-    setPassengerText("routeIncidentCount", "Unavailable");
-    setPassengerText("routeSummary", "No route results available.");
-    setPassengerText(
-      "routeMessage",
-      "Could not load route details. Check that your backend is running and the POST /api/routes endpoint is implemented."
-    );
-
-    const alternatives = document.getElementById("alternativeRoutes");
-    if (alternatives) alternatives.textContent = "Alternative routes unavailable.";
-
-    setPassengerText(
-      "routeNote",
-      "Directions can be opened in Google Maps, but this page could not calculate route details."
-    );
-  } finally {
-    if (startButton) {
-      startButton.disabled = false;
-      startButton.textContent = "Find routes";
-    }
-  }
 }
 
-document.getElementById("start")?.addEventListener("click", findPassengerRoutes);
-
-document.getElementById("avoid")?.addEventListener("click", () => {
-  if (passengerRoutes.length > 1) {
-    activeRouteIndex = (activeRouteIndex + 1) % passengerRoutes.length;
-    renderRouteSummary(passengerRoutes[activeRouteIndex]);
-    renderAlternativeRoutes();
-  } else {
-    setPassengerText(
-      "routeMessage",
-      "No alternative route is available yet. Find routes first."
-    );
-  }
-});
-
-
-
-/* Employee Travel Dashboard */
-
-const employeeTravelForm =
-  document.getElementById("employeeTravelForm");
-
-const employeeTable = document.getElementById("et");
-const employeeDetails = document.getElementById("ev");
-const employeeAlerts = document.getElementById("employeeRoadAlerts");
-
-let employeeJourneys = JSON.parse(
-  localStorage.getItem("employeeJourneys") || "[]"
-);
-
-function escapeEmployeeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, char => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  })[char]);
-}
-
-function renderEmployeeJourneys() {
-  if (!employeeTable) return;
-
-  employeeTable.innerHTML = employeeJourneys.map((journey, index) => `
-    <tr data-journey-index="${index}" style="cursor:pointer">
-      <td>${escapeEmployeeHtml(journey.name)}</td>
-      <td>${escapeEmployeeHtml(journey.from)} → ${escapeEmployeeHtml(journey.to)}</td>
-      <td>${escapeEmployeeHtml(journey.status)}</td>
-      <td>Not available</td>
-      <td>User entry</td>
-    </tr>
-  `).join("");
-
-  if (employeeJourneys.length === 0) {
-    employeeTable.innerHTML =
-      '<tr><td colspan="5">No employee journeys added yet.</td></tr>';
-  }
-}
-
-function showEmployeeRoadAlerts(journey) {
-  if (!employeeAlerts) return;
-
-  // Use the existing road reports already loaded by your app.
-  const reports = Array.isArray(cachedReports) ? cachedReports : [];
-
-  const routeWords = [journey.from, journey.to]
-    .join(" ")
-    .toLowerCase()
-    .split(/[\s,–—-]+/)
-    .filter(word => word.length > 2);
-
-  const matches = reports.filter(report => {
-    const location = typeof report.location === "string"
-      ? report.location
-      : report.location?.address || "";
-
-    const reportText = [
-      location,
-      report.title,
-      report.description,
-      report.category
-    ].join(" ").toLowerCase();
-
-    return routeWords.some(word => reportText.includes(word));
-  });
-
-  if (matches.length === 0) {
-    employeeAlerts.textContent =
-      "No matching reports found. This does not guarantee that the route is clear.";
-    return;
-  }
-
-  employeeAlerts.innerHTML = matches.map(report => {
-    const location = typeof report.location === "string"
-      ? report.location
-      : report.location?.address || "Location not specified";
-
-    return `
-      <div class="employee-alert-item">
-        <strong>${escapeEmployeeHtml(report.title || report.category || "Road incident")}</strong>
-        <p>${escapeEmployeeHtml(location)}</p>
-        <p>${escapeEmployeeHtml(report.severity || "Severity not specified")}</p>
-      </div>
-    `;
-  }).join("");
-}
-
-if (employeeTravelForm) {
-  employeeTravelForm.addEventListener("submit", function(event) {
-    event.preventDefault();
-
-    const journey = {
-      id: Date.now(),
-      name: document.getElementById("employeeName").value.trim(),
-      from: document.getElementById("travelFrom").value.trim(),
-      to: document.getElementById("travelTo").value.trim(),
-      mode: document.getElementById("travelMode").value,
-      status: document.getElementById("travelStatus").value
+function saveSession(account, role) {
+    currentUser = {
+        name: account.name,
+        email: account.email,
+        role: role,
+        userType: account.userType || "Passenger"
     };
 
-    if (!journey.name || !journey.from || !journey.to) {
-      alert("Please enter the employee name and journey details.");
-      return;
+    sessionStorage.setItem(
+        SESSION_KEY,
+        JSON.stringify(currentUser)
+    );
+}
+
+
+/* =========================================
+   HELPERS
+   ========================================= */
+
+function getElement(id) {
+    return document.getElementById(id);
+}
+
+function getInputValue(id) {
+    const element = getElement(id);
+    return element ? element.value.trim() : "";
+}
+
+function showMessage(id, message, isError = false) {
+    const element = getElement(id);
+
+    if (!element) return;
+
+    element.textContent = message;
+    element.style.color = isError ? "#dc2626" : "#15803d";
+}
+
+function escapeHTML(value) {
+    return String(value ?? "").replace(/[&<>"']/g, character => {
+        const replacements = {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;"
+        };
+
+        return replacements[character];
+    });
+}
+
+function formatDate(value) {
+    if (!value) return "Date unavailable";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "Date unavailable";
     }
 
-    employeeJourneys.push(journey);
-    localStorage.setItem(
-      "employeeJourneys",
-      JSON.stringify(employeeJourneys)
+    return date.toLocaleString();
+}
+
+
+/* =========================================
+   AUTHENTICATION SCREENS
+   ========================================= */
+
+function showAuthScreen(screenId) {
+    document.querySelectorAll(".auth-screen").forEach(screen => {
+        screen.classList.remove("active");
+    });
+
+    const selectedScreen = getElement(screenId);
+
+    if (selectedScreen) {
+        selectedScreen.classList.add("active");
+    }
+}
+
+
+/* =========================================
+   USER REGISTRATION
+   ========================================= */
+
+function registerUser(event) {
+    event.preventDefault();
+
+    const name = getInputValue("userName");
+    const email = getInputValue("userEmail").toLowerCase();
+    const password = getInputValue("userPassword");
+    const confirmPassword = getInputValue("userConfirmPassword");
+
+    if (!name || !email || !password || !confirmPassword) {
+        alert("Please fill in all fields.");
+        return;
+    }
+
+    if (password.length < 6) {
+        alert("Password must contain at least 6 characters.");
+        return;
+    }
+
+    if (password !== confirmPassword) {
+        alert("Passwords do not match.");
+        return;
+    }
+
+    const users = readStorage(USERS_KEY);
+
+    const exists = users.some(user =>
+        user.email.toLowerCase() === email
     );
 
-    renderEmployeeJourneys();
-    showEmployeeRoadAlerts(journey);
+    if (exists) {
+        alert("This email is already registered.");
+        return;
+    }
 
-    employeeTravelForm.reset();
-    alert("Employee journey added successfully!");
-  });
+    const account = {
+        id: Date.now().toString(),
+        name: name,
+        email: email,
+        password: password,
+        userType: "Passenger"
+    };
+
+    users.push(account);
+    writeStorage(USERS_KEY, users);
+
+    event.target.reset();
+
+    alert("Registration successful! Please log in.");
+    showAuthScreen("userLogin");
 }
 
-if (employeeTable) {
-  employeeTable.addEventListener("click", function(event) {
-    const row = event.target.closest("tr[data-journey-index]");
-    if (!row) return;
 
-    const journey = employeeJourneys[
-      Number(row.dataset.journeyIndex)
-    ];
-    if (!journey || !employeeDetails) return;
+/* =========================================
+   USER LOGIN
+   ========================================= */
 
-    employeeDetails.textContent =
-      `Employee: ${journey.name} | ` +
-      `Route: ${journey.from} to ${journey.to} | ` +
-      `Mode: ${journey.mode} | Status: ${journey.status}`;
+function loginUser(event) {
+    event.preventDefault();
 
-    showEmployeeRoadAlerts(journey);
-  });
+    const email = getInputValue("userLoginEmail").toLowerCase();
+    const password = getInputValue("userLoginPassword");
+
+    const users = readStorage(USERS_KEY);
+
+    const account = users.find(user =>
+        user.email.toLowerCase() === email &&
+        user.password === password
+    );
+
+    if (!account) {
+        alert("Invalid email or password. Please register first.");
+        return;
+    }
+
+    saveSession(account, "user");
+    openDashboard();
 }
 
-renderEmployeeJourneys();
-/* Illustrative chart; saved category table below is populated from MongoDB. */
-const demoMonthly = [["Jan",8],["Feb",11],["Mar",14],["Apr",19],["May",17]];
-$("#ch").innerHTML = demoMonthly.map((item,index) => `
-  <rect x="${18+index*60}" y="${140-item[1]*6.5}" width="40" height="${item[1]*6.5}" fill="${item[1]>=17 ? "#ff5267" : "#20e3a2"}" rx="3"></rect>
-  <text x="${38+index*60}" y="${134-item[1]*6.5}" font-size="12" text-anchor="middle" fill="#dce5ef">${item[1]}</text>
-  <text x="${38+index*60}" y="160" font-size="12" text-anchor="middle" fill="#dce5ef">${item[0]}</text>
-`).join("");
 
-/* Prototype authentication: accounts are stored in this browser only.
-   Do not use real passwords; production authentication belongs on the server. */
-async function passwordHash(value) {
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2,"0")).join("");
+/* =========================================
+   AUTHORITY REGISTRATION
+   ========================================= */
+
+function registerAuthority(event) {
+    event.preventDefault();
+
+    const name = getInputValue("authorityName");
+    const email = getInputValue("authorityEmail").toLowerCase();
+    const password = getInputValue("authorityPassword");
+    const confirmPassword = getInputValue("authorityConfirmPassword");
+    const code = getInputValue("authorityCode");
+
+    if (!name || !email || !password || !confirmPassword || !code) {
+        alert("Please fill in all fields.");
+        return;
+    }
+
+    if (password.length < 6) {
+        alert("Password must contain at least 6 characters.");
+        return;
+    }
+
+    if (password !== confirmPassword) {
+        alert("Passwords do not match.");
+        return;
+    }
+
+    // Demo-only code. This is not secure for a real application.
+    if (code !== "ROADALERT2026") {
+        alert("Invalid authority registration code.");
+        return;
+    }
+
+    const authorities = readStorage(AUTHORITIES_KEY);
+
+    const exists = authorities.some(authority =>
+        authority.email.toLowerCase() === email
+    );
+
+    if (exists) {
+        alert("This authority email is already registered.");
+        return;
+    }
+
+    const account = {
+        id: Date.now().toString(),
+        name: name,
+        email: email,
+        password: password
+    };
+
+    authorities.push(account);
+    writeStorage(AUTHORITIES_KEY, authorities);
+
+    event.target.reset();
+
+    alert("Authority registration successful! Please log in.");
+    showAuthScreen("authorityLogin");
 }
-function getUsers() {
-  try { return JSON.parse(localStorage.getItem(USERS_KEY) || "[]"); }
-  catch { return []; }
+
+
+/* =========================================
+   AUTHORITY LOGIN
+   ========================================= */
+
+function loginAuthority(event) {
+    event.preventDefault();
+
+    const email = getInputValue("authorityLoginEmail").toLowerCase();
+    const password = getInputValue("authorityLoginPassword");
+
+    const authorities = readStorage(AUTHORITIES_KEY);
+
+    const account = authorities.find(authority =>
+        authority.email.toLowerCase() === email &&
+        authority.password === password
+    );
+
+    if (!account) {
+        alert("Invalid authority email or password.");
+        return;
+    }
+
+    saveSession(account, "authority");
+    openDashboard();
 }
-$("#loginForm").addEventListener("submit", async event => {
-  event.preventDefault();
-  const email = $("#loginEmail").value.trim().toLowerCase();
-  const password = $("#loginPassword").value;
-  const user = getUsers().find(item => item.email === email);
-  if (!user || user.passwordHash !== await passwordHash(password)) {
-    setMessage($("#loginMessage"), "Email or password is incorrect. Register first if you do not have an account.");
-    return;
-  }
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({name:user.name, email:user.email, role:user.role}));
-  updateAuthUI();
-  show("home");
-  toast(`Welcome to RoadAlert, ${user.name}!`);
+
+
+/* =========================================
+   DASHBOARD
+   ========================================= */
+
+function openDashboard() {
+    document.querySelectorAll(".auth-screen").forEach(screen => {
+        screen.classList.remove("active");
+    });
+
+    const dashboard = getElement("dashboard");
+
+    if (dashboard) {
+        dashboard.style.display = "flex";
+    }
+
+    const authorityButton = document.querySelector(
+        '.nav-btn[data-page="authority"]'
+    );
+
+    if (authorityButton) {
+        authorityButton.style.display =
+            currentUser.role === "authority" ? "block" : "none";
+    }
+
+    const userTypeSelect = getElement("userTypeSelect");
+
+    if (userTypeSelect && currentUser.role === "user") {
+        userTypeSelect.value = currentUser.userType || "Passenger";
+    }
+
+    const userTypeMessage = getElement("userTypeMessage");
+
+    if (userTypeMessage && currentUser.role === "user") {
+        userTypeMessage.textContent =
+            "Logged in as " + (currentUser.userType || "Passenger");
+    }
+
+    updateDashboard();
+
+    if (currentUser.role === "authority") {
+        showPage("authority");
+    } else {
+        showPage("home");
+    }
+}
+
+
+/* =========================================
+   PAGE NAVIGATION
+   ========================================= */
+
+function showPage(pageId) {
+    if (!currentUser) {
+        showAuthScreen("userLogin");
+        return;
+    }
+
+    if (
+        currentUser.role === "user" &&
+        pageId === "authority"
+    ) {
+        alert("Only authorities can access the authority panel.");
+        return;
+    }
+
+    if (
+        currentUser.role === "authority" &&
+        ["report", "passenger", "gps", "verification",
+         "routes", "monthly"].includes(pageId)
+    ) {
+        alert("This page is available to road users.");
+        return;
+    }
+
+    document.querySelectorAll(".page").forEach(page => {
+        page.classList.remove("active");
+    });
+
+    const page = getElement(pageId);
+
+    if (page) {
+        page.classList.add("active");
+    }
+
+    document.querySelectorAll(".nav-btn[data-page]").forEach(button => {
+        button.classList.remove("active");
+    });
+
+    const activeButton = document.querySelector(
+        `.nav-btn[data-page="${pageId}"]`
+    );
+
+    if (activeButton) {
+        activeButton.classList.add("active");
+    }
+
+    if (pageId === "home") {
+        updateDashboard();
+    }
+
+    if (pageId === "passenger") {
+        renderPassengerReports();
+    }
+
+    if (pageId === "authority") {
+        renderAuthorityReports();
+    }
+
+    if (pageId === "verification") {
+        renderVerificationReports();
+    }
+
+    if (pageId === "monthly") {
+        renderMonthlyReport();
+    }
+}
+
+function updateDashboard() {
+    const total = getElement("totalReports");
+
+    if (total) {
+        total.textContent = getReports().length;
+    }
+}
+
+
+/* =========================================
+   PASSENGER / EMPLOYEE SELECTION
+   ========================================= */
+
+function changeUserType() {
+    if (!currentUser || currentUser.role !== "user") return;
+
+    const select = getElement("userTypeSelect");
+
+    if (!select) return;
+
+    const selectedType = select.value;
+
+    currentUser.userType = selectedType;
+
+    sessionStorage.setItem(
+        SESSION_KEY,
+        JSON.stringify(currentUser)
+    );
+
+    const users = readStorage(USERS_KEY);
+
+    const index = users.findIndex(user =>
+        user.email.toLowerCase() === currentUser.email.toLowerCase()
+    );
+
+    if (index !== -1) {
+        users[index].userType = selectedType;
+        writeStorage(USERS_KEY, users);
+    }
+
+    showMessage(
+        "userTypeMessage",
+        "Account type updated to " + selectedType
+    );
+}
+
+
+/* =========================================
+   INCIDENT IMAGE PREVIEW
+   ========================================= */
+
+function previewIncidentImage() {
+    const input = getElement("incidentImage");
+    const preview = getElement("incidentPreview");
+
+    if (!input || !preview) return;
+
+    preview.innerHTML = "";
+
+    const file = input.files && input.files[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+        alert("Please select an image file.");
+        input.value = "";
+        return;
+    }
+
+    const image = document.createElement("img");
+
+    image.src = URL.createObjectURL(file);
+    image.alt = "Incident image preview";
+
+    preview.appendChild(image);
+}
+
+
+/* =========================================
+   SUBMIT INCIDENT REPORT
+   ========================================= */
+
+function submitReport(event) {
+    event.preventDefault();
+
+    if (!currentUser || currentUser.role !== "user") {
+        alert("Please log in as a road user.");
+        return;
+    }
+
+    const type = getInputValue("incidentType");
+    const location = getInputValue("incidentLocation");
+    const description = getInputValue("incidentDescription");
+
+    if (!type || !location || !description) {
+        alert("Please complete all required fields.");
+        return;
+    }
+
+    const imageInput = getElement("incidentImage");
+    const imageFile = imageInput && imageInput.files
+        ? imageInput.files[0]
+        : null;
+
+    const report = {
+        id: "RA" + Date.now(),
+        userName: currentUser.name,
+        userEmail: currentUser.email,
+        userType: currentUser.userType || "Passenger",
+        incidentType: type,
+        incidentLocation: location,
+        incidentDescription: description,
+        imageName: imageFile ? imageFile.name : "",
+        date: new Date().toISOString(),
+        status: "Pending",
+        verificationStatus: "Unverified"
+    };
+
+    const reports = getReports();
+
+    reports.unshift(report);
+    writeStorage(REPORTS_KEY, reports);
+
+    event.target.reset();
+
+    const preview = getElement("incidentPreview");
+
+    if (preview) {
+        preview.innerHTML = "";
+    }
+
+    alert("Incident report submitted successfully!");
+
+    updateDashboard();
+    showPage("passenger");
+}
+
+
+/* =========================================
+   MY REPORTS
+   ========================================= */
+
+function renderPassengerReports() {
+    const container = getElement("passengerReports");
+
+    if (!container || !currentUser) return;
+
+    const reports = getReports().filter(report =>
+        report.userEmail &&
+        report.userEmail.toLowerCase() ===
+        currentUser.email.toLowerCase()
+    );
+
+    if (reports.length === 0) {
+        container.innerHTML =
+            "<p>You have not submitted any reports yet.</p>";
+        return;git add .
+    }
+
+    container.innerHTML = reports.map(report => `
+        <article class="report-card">
+            <h3>${escapeHTML(report.incidentType)}</h3>
+
+            <p><strong>Report ID:</strong>
+                ${escapeHTML(report.id)}</p>
+
+            <p><strong>Location:</strong>
+                ${escapeHTML(report.incidentLocation)}</p>
+
+            <p><strong>Description:</strong>
+                ${escapeHTML(report.incidentDescription)}</p>
+
+            <p><strong>Date:</strong>
+                ${escapeHTML(formatDate(report.date))}</p>
+
+            <p><strong>Status:</strong>
+                ${escapeHTML(report.status || "Pending")}</p>
+
+            <p><strong>Verification:</strong>
+                ${escapeHTML(report.verificationStatus || "Unverified")}</p>
+        </article>
+    `).join("");
+}
+
+
+/* =========================================
+   GPS LOCATION
+   ========================================= */
+
+function getGPSLocation() {
+    const coordinates = getElement("gpsCoordinates");
+    const map = getElement("gpsMap");
+
+    if (!navigator.geolocation) {
+        showMessage("gpsMessage", "GPS is not supported by this browser.", true);
+        return;
+    }
+
+    showMessage("gpsMessage", "Getting your location...");
+
+    navigator.geolocation.getCurrentPosition(
+        position => {
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+
+            currentLocation = {
+                latitude: latitude,
+                longitude: longitude
+            };
+
+            if (coordinates) {
+                coordinates.textContent =
+                    "Latitude: " + latitude.toFixed(6) +
+                    " | Longitude: " + longitude.toFixed(6);
+            }
+
+            if (map) {
+                const left = longitude - 0.01;
+                const bottom = latitude - 0.01;
+                const right = longitude + 0.01;
+                const top = latitude + 0.01;
+
+                map.src =
+                    "https://www.openstreetmap.org/export/embed.html" +
+                    "?bbox=" + left + "%2C" + bottom + "%2C" +
+                    right + "%2C" + top +
+                    "&layer=mapnik&marker=" +
+                    latitude + "%2C" + longitude;
+
+                map.style.display = "block";
+            }
+
+            showMessage("gpsMessage", "Location found successfully.");
+        },
+        error => {
+            let message = "Unable to get your location.";
+
+            if (error.code === 1) {
+                message = "Location permission denied. Allow location access.";
+            } else if (error.code === 2) {
+                message = "Location is unavailable. Try again.";
+            } else if (error.code === 3) {
+                message = "Location request timed out. Try again.";
+            }
+
+            showMessage("gpsMessage", message, true);
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0
+        }
+    );
+}
+
+
+/* =========================================
+   VERIFICATION VIEW
+   ========================================= */
+
+function renderVerificationReports() {
+    const container = getElement("verificationReports");
+
+    if (!container) return;
+
+    const reports = getReports();
+
+    if (reports.length === 0) {
+        container.innerHTML = "<p>No reports available.</p>";
+        return;
+    }
+
+    container.innerHTML = reports.map(report => `
+        <article class="report-card">
+            <h3>${escapeHTML(report.incidentType)}</h3>
+
+            <p><strong>Report ID:</strong>
+                ${escapeHTML(report.id)}</p>
+
+            <p><strong>Location:</strong>
+                ${escapeHTML(report.incidentLocation)}</p>
+
+            <p><strong>Status:</strong>
+                ${escapeHTML(report.status || "Pending")}</p>
+
+            <p><strong>Verification:</strong>
+                ${escapeHTML(report.verificationStatus || "Unverified")}</p>
+        </article>
+    `).join("");
+}
+
+
+/* =========================================
+   GOOGLE MAPS DIRECTIONS
+   ========================================= */
+
+function openAlternativeRoute() {
+    const destination = getInputValue("routeDestination");
+
+    if (!destination) {
+        showMessage("routeMessage", "Please enter a destination.", true);
+        return;
+    }
+
+    let url =
+        "https://www.google.com/maps/dir/?api=1" +
+        "&destination=" + encodeURIComponent(destination) +
+        "&travelmode=driving";
+
+    if (currentLocation) {
+        const origin =
+            currentLocation.latitude + "," +
+            currentLocation.longitude;
+
+        url += "&origin=" + encodeURIComponent(origin);
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
+
+    showMessage(
+        "routeMessage",
+        "Google Maps opened. Check the route and traffic conditions there."
+    );
+}
+
+
+/* =========================================
+   MONTHLY REPORTS
+   ========================================= */
+
+function renderMonthlyReport() {
+    const monthInput = getElement("reportMonth");
+
+    if (!monthInput || !monthInput.value) return;
+
+    const month = monthInput.value;
+
+    const reports = getReports().filter(report =>
+        report.date && report.date.slice(0, 7) === month
+    );
+
+    const pending = reports.filter(report =>
+        (report.status || "Pending") === "Pending"
+    ).length;
+
+    const resolved = reports.filter(report =>
+        report.status === "Resolved"
+    ).length;
+
+    const totalElement = getElement("monthlyTotal");
+    const pendingElement = getElement("monthlyPending");
+    const resolvedElement = getElement("monthlyResolved");
+    const categoriesElement = getElement("monthlyCategories");
+
+    if (totalElement) totalElement.textContent = reports.length;
+    if (pendingElement) pendingElement.textContent = pending;
+    if (resolvedElement) resolvedElement.textContent = resolved;
+
+    if (!categoriesElement) return;
+
+    if (reports.length === 0) {
+        categoriesElement.innerHTML =
+            "<p>No reports found for this month.</p>";
+        return;
+    }
+
+    const counts = {};
+
+    reports.forEach(report => {
+        const type = report.incidentType || "Other";
+        counts[type] = (counts[type] || 0) + 1;
+    });
+
+    categoriesElement.innerHTML = Object.entries(counts).map(
+        ([type, count]) => `
+            <p><strong>${escapeHTML(type)}:</strong> ${count}</p>
+        `
+    ).join("");
+}
+
+
+/* =========================================
+   AUTHORITY REPORT MANAGEMENT
+   ========================================= */
+
+function authorityReportCard(report) {
+    return `
+        <article class="report-card">
+            <h3>${escapeHTML(report.incidentType)}</h3>
+
+            <p><strong>Report ID:</strong>
+                ${escapeHTML(report.id)}</p>
+
+            <p><strong>Reported by:</strong>
+                ${escapeHTML(report.userName)}</p>
+
+            <p><strong>User type:</strong>
+                ${escapeHTML(report.userType || "Passenger")}</p>
+
+            <p><strong>Location:</strong>
+                ${escapeHTML(report.incidentLocation)}</p>
+
+            <p><strong>Description:</strong>
+                ${escapeHTML(report.incidentDescription)}</p>
+
+            <p><strong>Date:</strong>
+                ${escapeHTML(formatDate(report.date))}</p>
+
+            <label for="status-${escapeHTML(report.id)}">
+                Update status
+            </label>
+
+            <select
+                id="status-${escapeHTML(report.id)}"
+                onchange="updateReportStatus('${escapeHTML(report.id)}', this.value)"
+            >
+                <option value="Pending"
+                    ${report.status === "Pending" ? "selected" : ""}>
+                    Pending
+                </option>
+
+                <option value="Resolved"
+                    ${report.status === "Resolved" ? "selected" : ""}>
+                    Resolved
+                </option>
+            </select>
+        </article>
+    `;
+}
+
+function renderAuthorityReports() {
+    const reports = getReports();
+
+    const pendingContainer = getElement("pendingReports");
+    const resolvedContainer = getElement("resolvedReports");
+    const allContainer = getElement("authorityReports");
+
+    const pending = reports.filter(report =>
+        (report.status || "Pending") === "Pending"
+    );
+
+    const resolved = reports.filter(report =>
+        report.status === "Resolved"
+    );
+
+    if (pendingContainer) {
+        pendingContainer.innerHTML = pending.length
+            ? pending.map(authorityReportCard).join("")
+            : "<p>No pending reports.</p>";
+    }
+
+    if (resolvedContainer) {
+        resolvedContainer.innerHTML = resolved.length
+            ? resolved.map(authorityReportCard).join("")
+            : "<p>No resolved reports.</p>";
+    }
+
+    if (allContainer) {
+        allContainer.innerHTML = reports.length
+            ? reports.map(authorityReportCard).join("")
+            : "<p>No reports submitted yet.</p>";
+    }
+}
+
+function updateReportStatus(reportId, newStatus) {
+    if (!currentUser || currentUser.role !== "authority") {
+        alert("Only authorities can update report status.");
+        return;
+    }
+
+    if (!["Pending", "Resolved"].includes(newStatus)) {
+        alert("Invalid report status.");
+        return;
+    }
+
+    const reports = getReports();
+
+    const index = reports.findIndex(report =>
+        report.id === reportId
+    );
+
+    if (index === -1) {
+        alert("Report not found.");
+        return;
+    }
+
+    reports[index].status = newStatus;
+
+    // Demo only: status update is not independent verification.
+    reports[index].verificationStatus =
+        newStatus === "Resolved" ? "Verified" : "Unverified";
+
+    writeStorage(REPORTS_KEY, reports);
+
+    renderAuthorityReports();
+    renderPassengerReports();
+    renderVerificationReports();
+    renderMonthlyReport();
+    updateDashboard();
+}
+
+
+/* =========================================
+   LOGOUT
+   ========================================= */
+
+function logout() {
+    currentUser = null;
+    currentLocation = null;
+
+    sessionStorage.removeItem(SESSION_KEY);
+
+    const dashboard = getElement("dashboard");
+
+    if (dashboard) {
+        dashboard.style.display = "none";
+    }
+
+    showAuthScreen("userLogin");
+}
+
+
+/* =========================================
+   CONNECT HTML EVENTS
+   ========================================= */
+
+function connectEvents() {
+    // Login and registration
+    const userLoginForm = getElement("userLoginForm");
+    const userRegisterForm = getElement("userRegisterForm");
+    const authorityLoginForm = getElement("authorityLoginForm");
+    const authorityRegisterForm = getElement("authorityRegisterForm");
+
+    if (userLoginForm) {
+        userLoginForm.addEventListener("submit", loginUser);
+    }
+
+    if (userRegisterForm) {
+        userRegisterForm.addEventListener("submit", registerUser);
+    }
+
+    if (authorityLoginForm) {
+        authorityLoginForm.addEventListener("submit", loginAuthority);
+    }
+
+    if (authorityRegisterForm) {
+        authorityRegisterForm.addEventListener("submit", registerAuthority);
+    }
+
+    // Authentication screen navigation
+    const showUserRegister = getElement("showUserRegister");
+    const showAuthorityLogin = getElement("showAuthorityLogin");
+    const showAuthorityRegister = getElement("showAuthorityRegister");
+
+    if (showUserRegister) {
+        showUserRegister.addEventListener("click", () => {
+            showAuthScreen("userRegister");
+        });
+    }
+
+    if (showAuthorityLogin) {
+        showAuthorityLogin.addEventListener("click", () => {
+            showAuthScreen("authorityLogin");
+        });
+    }
+
+    if (showAuthorityRegister) {
+        showAuthorityRegister.addEventListener("click", () => {
+            showAuthScreen("authorityRegister");
+        });
+    }
+
+    // Back buttons
+    const backToUserLogin = getElement("backToUserLogin");
+    const backFromRegister = getElement("backToUserLoginFromRegister");
+    const backToAuthorityLogin = getElement("backToAuthorityLogin");
+
+    if (backToUserLogin) {
+        backToUserLogin.addEventListener("click", () => {
+            showAuthScreen("userLogin");
+        });
+    }
+
+    if (backFromRegister) {
+        backFromRegister.addEventListener("click", () => {
+            showAuthScreen("userLogin");
+        });
+    }
+
+    if (backToAuthorityLogin) {
+        backToAuthorityLogin.addEventListener("click", () => {
+            showAuthScreen("authorityLogin");
+        });
+    }
+
+    // Dashboard navigation
+    document.querySelectorAll(".nav-btn[data-page]").forEach(button => {
+        button.addEventListener("click", () => {
+            showPage(button.dataset.page);
+        });
+    });
+
+    // Logout
+    document.querySelectorAll(".logout-btn").forEach(button => {
+        button.addEventListener("click", logout);
+    });
+
+    // Incident report
+    const reportForm = getElement("reportForm");
+
+    if (reportForm) {
+        reportForm.addEventListener("submit", submitReport);
+    }
+
+    // Image preview
+    const imageInput = getElement("incidentImage");
+
+    if (imageInput) {
+        imageInput.addEventListener("change", previewIncidentImage);
+    }
+
+    // Passenger / employee
+    const userTypeSelect = getElement("userTypeSelect");
+
+    if (userTypeSelect) {
+        userTypeSelect.addEventListener("change", changeUserType);
+    }
+
+    // GPS
+    const gpsButton = getElement("getGpsButton");
+
+    if (gpsButton) {
+        gpsButton.addEventListener("click", getGPSLocation);
+    }
+
+    // Directions
+    const routeButton = getElement("openRouteButton");
+
+    if (routeButton) {
+        routeButton.addEventListener("click", openAlternativeRoute);
+    }
+
+    // Monthly reports
+    const reportMonth = getElement("reportMonth");
+
+    if (reportMonth) {
+        reportMonth.addEventListener("change", renderMonthlyReport);
+    }
+}
+
+
+/* =========================================
+   APPLICATION START
+   ========================================= */
+
+document.addEventListener("DOMContentLoaded", function () {
+    connectEvents();
+
+    // Set the current month in the monthly report input.
+    const monthInput = getElement("reportMonth");
+
+    if (monthInput && !monthInput.value) {
+        const now = new Date();
+
+        monthInput.value =
+            now.getFullYear() + "-" +
+            String(now.getMonth() + 1).padStart(2, "0");
+    }
+
+    // Restore the login session if available.
+    const savedSession = getSavedSession();
+
+    if (
+        savedSession &&
+        savedSession.email &&
+        savedSession.role
+    ) {
+        currentUser = savedSession;
+        openDashboard();
+    } else {
+        showAuthScreen("userLogin");
+    }
 });
-$("#registerForm").addEventListener("submit", async event => {
-  event.preventDefault();
-  const name = $("#regName").value.trim();
-  const email = $("#regEmail").value.trim().toLowerCase();
-  const role = $("#regRole").value;
-  const password = $("#regPassword").value;
-  const confirmation = $("#regConfirm").value;
-  if (password.length < 8) {
-    setMessage($("#registerMessage"), "Use at least 8 characters for the password."); return;
-  }
-  if (password !== confirmation) {
-    setMessage($("#registerMessage"), "Passwords do not match."); return;
-  }
-  const users = getUsers();
-  if (users.some(item => item.email === email)) {
-    setMessage($("#registerMessage"), "An account with this email already exists. Please log in."); return;
-  }
-  users.push({name, email, role, passwordHash: await passwordHash(password)});
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({name, email, role}));
-  updateAuthUI();
-  show("home");
-  toast("Account created in this browser. Welcome to RoadAlert!");
-});
-
-/* Start with login/register only. Home and other sections require a session. */
-updateAuthUI();
-if (currentUser()) show("home"); else show("login");
-loadRoadAlerts();

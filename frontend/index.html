@@ -1,395 +1,518 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>RoadAlert — Know Why the Road Is Blocked</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>RoadAlert | Smart Road Safety</title>
+
     <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
 </head>
 
 <body>
-    <nav id="siteNav" aria-label="Main navigation" style="display:none">
-        <b>🛣️ RoadAlert</b>
-        <button data-v="home" aria-current="true">Home</button>
-        <button data-v="rep">Report</button>
-        <button data-v="pass">Passenger</button>
-        <button data-v="emp">Employer</button>
-        <button data-v="auth">Authority</button>
-        <button id="logoutButton" type="button">Logout</button>
-    </nav>
 
-    <main>
-        <section id="home">
-            <div class="hero">
-                <h1>Every Road Update. A Smarter Journey.</h1>
-                <p style="max-width:52ch;font-size:18px;color:var(--mute)">RoadAlert helps commuters understand reported
-                    road problems, see incident details, and consider alternatives. Reports are community-submitted and
-                    should be verified before making travel decisions.</p>
-                <div class="cta"><button class="btn" data-go="pass">Plan my trip</button><button class="btn alt"
-                        data-go="rep">Report a road problem</button></div>
-                <div class="gantry" aria-live="polite">
-                    <div class="route">NH-66 · Mangaluru → Udupi · demo display</div>
-                    <div class="vms" id="vms"></div>
-                    <div class="road" id="road" aria-hidden="true">
-                        <div class="jam"><span>Mulki</span></div>
+    <!-- =========================
+         USER LOGIN
+    ========================== -->
+    <section id="userLogin" class="auth-screen active">
+        <div class="auth-card">
+            <div class="logo">🚦 RoadAlert</div>
+
+            <h1>Welcome Back</h1>
+            <p class="subtitle">Sign in to report road incidents.</p>
+
+            <form id="userLoginForm">
+                <label for="userLoginEmail">Email Address</label>
+                <input
+                    type="email"
+                    id="userLoginEmail"
+                    placeholder="Enter your email"
+                    required
+                >
+
+                <label for="userLoginPassword">Password</label>
+                <input
+                    type="password"
+                    id="userLoginPassword"
+                    placeholder="Enter your password"
+                    required
+                >
+
+                <button type="submit" class="primary-btn">
+                    Login
+                </button>
+            </form>
+
+            <p class="auth-link">
+                Don't have an account?
+                <button type="button" id="showUserRegister">
+                    Register
+                </button>
+            </p>
+
+            <p class="auth-link">
+                Authority?
+                <button type="button" id="showAuthorityLogin">
+                    Authority Login
+                </button>
+            </p>
+        </div>
+    </section>
+
+
+    <!-- =========================
+         USER REGISTRATION
+    ========================== -->
+    <section id="userRegister" class="auth-screen">
+        <div class="auth-card">
+            <div class="logo">🚦 RoadAlert</div>
+
+            <h1>Create Account</h1>
+            <p class="subtitle">Register as a road user.</p>
+
+            <form id="userRegisterForm">
+                <label for="userName">Full Name</label>
+                <input
+                    type="text"
+                    id="userName"
+                    placeholder="Enter your name"
+                    required
+                >
+
+                <label for="userEmail">Email Address</label>
+                <input
+                    type="email"
+                    id="userEmail"
+                    placeholder="Enter your email"
+                    required
+                >
+
+                <label for="userPassword">Password</label>
+                <input
+                    type="password"
+                    id="userPassword"
+                    placeholder="Create a password"
+                    minlength="6"
+                    required
+                >
+
+                <label for="userConfirmPassword">Confirm Password</label>
+                <input
+                    type="password"
+                    id="userConfirmPassword"
+                    placeholder="Confirm your password"
+                    minlength="6"
+                    required
+                >
+
+                <button type="submit" class="primary-btn">
+                    Register
+                </button>
+            </form>
+
+            <p class="auth-link">
+                Already registered?
+                <button type="button" id="backToUserLoginFromRegister">
+                    Back to Login
+                </button>
+            </p>
+        </div>
+    </section>
+
+
+    <!-- =========================
+         AUTHORITY LOGIN
+    ========================== -->
+    <section id="authorityLogin" class="auth-screen">
+        <div class="auth-card">
+            <div class="logo">🚦 RoadAlert</div>
+
+            <h1>Authority Login</h1>
+            <p class="subtitle">Sign in to manage road incidents.</p>
+
+            <form id="authorityLoginForm">
+                <label for="authorityLoginEmail">Email Address</label>
+                <input
+                    type="email"
+                    id="authorityLoginEmail"
+                    placeholder="Enter authority email"
+                    required
+                >
+
+                <label for="authorityLoginPassword">Password</label>
+                <input
+                    type="password"
+                    id="authorityLoginPassword"
+                    placeholder="Enter password"
+                    required
+                >
+
+                <button type="submit" class="primary-btn">
+                    Authority Login
+                </button>
+            </form>
+
+            <p class="auth-link">
+                New authority?
+                <button type="button" id="showAuthorityRegister">
+                    Register
+                </button>
+            </p>
+
+            <p class="auth-link">
+                <button type="button" id="backToUserLogin">
+                    Back to User Login
+                </button>
+            </p>
+        </div>
+    </section>
+
+
+    <!-- =========================
+         AUTHORITY REGISTRATION
+    ========================== -->
+    <section id="authorityRegister" class="auth-screen">
+        <div class="auth-card">
+            <div class="logo">🚦 RoadAlert</div>
+
+            <h1>Authority Registration</h1>
+            <p class="subtitle">Create an authority demo account.</p>
+
+            <form id="authorityRegisterForm">
+                <label for="authorityName">Full Name</label>
+                <input
+                    type="text"
+                    id="authorityName"
+                    placeholder="Enter your name"
+                    required
+                >
+
+                <label for="authorityEmail">Email Address</label>
+                <input
+                    type="email"
+                    id="authorityEmail"
+                    placeholder="Enter your email"
+                    required
+                >
+
+                <label for="authorityPassword">Password</label>
+                <input
+                    type="password"
+                    id="authorityPassword"
+                    placeholder="Create a password"
+                    minlength="6"
+                    required
+                >
+
+                <label for="authorityConfirmPassword">
+                    Confirm Password
+                </label>
+                <input
+                    type="password"
+                    id="authorityConfirmPassword"
+                    placeholder="Confirm your password"
+                    minlength="6"
+                    required
+                >
+
+                <label for="authorityCode">Authority Registration Code</label>
+                <input
+                    type="password"
+                    id="authorityCode"
+                    placeholder="Enter demo code"
+                    required
+                >
+
+                <button type="submit" class="primary-btn">
+                    Register Authority
+                </button>
+            </form>
+
+            <p class="auth-link">
+                <button type="button" id="backToAuthorityLogin">
+                    Back to Authority Login
+                </button>
+            </p>
+        </div>
+    </section>
+
+
+    <!-- =========================
+         MAIN DASHBOARD
+    ========================== -->
+    <div id="dashboard" class="dashboard" style="display: none;">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="logo">🚦 RoadAlert</div>
+
+            <nav>
+                <button class="nav-btn active" data-page="home">
+                    Home
+                </button>
+
+                <button class="nav-btn" data-page="report">
+                    Report Incident
+                </button>
+
+                <button class="nav-btn" data-page="passenger">
+                    My Reports
+                </button>
+
+                <button class="nav-btn" data-page="gps">
+                    GPS Map
+                </button>
+
+                <button class="nav-btn" data-page="verification">
+                    Incident Verification
+                </button>
+
+                <button class="nav-btn" data-page="routes">
+                    Alternative Route
+                </button>
+
+                <button class="nav-btn" data-page="monthly">
+                    Monthly Reports
+                </button>
+
+                <button class="nav-btn" data-page="authority">
+                    Authority Panel
+                </button>
+            </nav>
+
+            <button class="logout-btn">Logout</button>
+        </aside>
+
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+
+            <!-- HOME PAGE -->
+            <section id="home" class="page active">
+                <header class="page-header">
+                    <h1>Dashboard</h1>
+                    <p>Welcome to RoadAlert.</p>
+                </header>
+
+                <div class="dashboard-card">
+                    <h2>Total Road Reports</h2>
+                    <p id="totalReports">0</p>
+                </div>
+
+                <div class="dashboard-card">
+                    <h2>Account Type</h2>
+
+                    <label for="userTypeSelect">
+                        Select your role
+                    </label>
+
+                    <select id="userTypeSelect">
+                        <option value="Passenger">Passenger</option>
+                        <option value="Employee">Employee</option>
+                    </select>
+
+                    <p id="userTypeMessage"></p>
+                </div>
+
+                <div class="dashboard-card">
+                    <h2>Report a Road Problem</h2>
+                    <p>Help make roads safer by reporting incidents.</p>
+
+                    <button class="nav-btn" data-page="report">
+                        Report Now
+                    </button>
+            </div>
+            </section>
+
+
+            <!-- REPORT INCIDENT PAGE -->
+            <section id="report" class="page">
+                <header class="page-header">
+                    <h1>Report a Road Problem</h1>
+                    <p>Provide accurate details about the incident.</p>
+                </header>
+
+                <div class="content-card">
+                    <form id="reportForm">
+
+                        <label for="incidentType">Incident Type</label>
+                        <select id="incidentType" required>
+                            <option value="">Select incident</option>
+                            <option value="Accident">Accident</option>
+                            <option value="Flood">Flood</option>
+                            <option value="Roadblock">Roadblock</option>
+                            <option value="Construction">Construction</option>
+                            <option value="Heavy Traffic">Heavy Traffic</option>
+                            <option value="Landslide">Landslide</option>
+                            <option value="Road Damage">Road Damage</option>
+                            <option value="Other">Other</option>
+                        </select>
+
+                        <label for="incidentLocation">Incident Location</label>
+                        <input
+                            type="text"
+                            id="incidentLocation"
+                            placeholder="Enter road name or location"
+                            required
+                        >
+
+                        <label for="incidentDescription">Description</label>
+                        <textarea
+                            id="incidentDescription"
+                            rows="5"
+                            placeholder="Describe the road problem"
+                            required
+                        ></textarea>
+
+                        <label for="incidentImage">Upload Evidence</label>
+                        <input
+                            type="file"
+                            id="incidentImage"
+                            accept="image/*"
+                        >
+
+                        <div id="incidentPreview"></div>
+
+                        <button type="submit" class="primary-btn">
+                    Submit Report
+                </button>
+                    </form>
+                </div>
+            </section>
+
+
+            <!-- MY REPORTS PAGE -->
+            <section id="passenger" class="page">
+                <header class="page-header">
+                    <h1>My Reports</h1>
+                    <p>View the incidents you submitted.</p>
+                </header>
+
+                <div id="passengerReports" class="report-list"></div>
+            </section>
+
+
+            <!-- GPS PAGE -->
+            <section id="gps" class="page">
+                <header class="page-header">
+                    <h1>GPS Map</h1>
+                    <p>Find your current location on the map.</p>
+                </header>
+
+                <div class="content-card">
+                    <button type="button" id="getGpsButton" class="primary-btn">
+                        Get My Location
+                    </button>
+
+                    <p id="gpsMessage"></p>
+                    <p id="gpsCoordinates"></p>
+
+                    <iframe
+                        id="gpsMap"
+                        title="Your current location on OpenStreetMap"
+                        width="100%"
+                        height="350"
+                        style="display: none;"
+                        loading="lazy"
+                    ></iframe>
+                </div>
+            </section>
+
+
+            <!-- VERIFICATION PAGE -->
+            <section id="verification" class="page">
+                <header class="page-header">
+                    <h1>Incident Verification</h1>
+                    <p>Review submitted incident information.</p>
+                </header>
+
+                <div id="verificationReports" class="report-list"></div>
+            </section>
+
+
+            <!-- ALTERNATIVE ROUTE PAGE -->
+            <section id="routes" class="page">
+                <header class="page-header">
+                    <h1>Alternative Route</h1>
+                    <p>Open directions to your destination.</p>
+                </header>
+
+                <div class="content-card">
+                    <label for="routeDestination">Destination</label>
+                    <input
+                        type="text"
+                        id="routeDestination"
+                        placeholder="Enter destination"
+                        required
+                    >
+
+                    <button type="button" id="openRouteButton" class="primary-btn">
+                        Open Google Maps Directions
+                    </button>
+
+                    <p id="routeMessage"></p>
+        </div>
+            </section>
+
+
+            <!-- MONTHLY REPORT PAGE -->
+            <section id="monthly" class="page">
+                <header class="page-header">
+                    <h1>Monthly Reports</h1>
+                    <p>View a summary of submitted reports.</p>
+                </header>
+
+                <div class="content-card">
+                    <label for="reportMonth">Select Month</label>
+                    <input type="month" id="reportMonth">
+
+                    <div class="dashboard-card">
+                        <h2>Total Reports</h2>
+                        <p id="monthlyTotal">0</p>
                     </div>
-                </div>
-            </div>
-            <div class="pipe" style="margin:22px 0">
-                <div><b>Report</b>Submit a road problem with its location and description.</div>
-                <div><b>Verify</b>Community and authority verification can be added in future.</div>
-                <div><b>Alert</b>Review reported incidents before choosing a route.</div>
-                <div><b>Analyse</b>Use saved reports to identify recurring problem areas.</div>
-            </div>
-            <div class="grid">
-                <div class="card">
-                    <h3>Commuters</h3>
-                    <p>Review road issues reported by the community.</p>
-                </div>
-                <div class="card">
-                    <h3>Employers</h3>
-                    <p>Explore a demonstration dashboard for travel coordination.</p>
-                </div>
-                <div class="card">
-                    <h3>Traffic authorities</h3>
-                    <p>Review reported hazards and identify patterns for further investigation.</p>
-                </div>
-            </div>
-        </section>
 
-        
-<section id="pass" class="passenger-section">
-    <div class="passenger-header">
-        <div>
-            <span class="eyebrow">SMART JOURNEY PLANNER</span>
-            <h2>Plan your journey</h2>
-            <p class="muted">Check road incidents and compare routes before travelling.</p>
+                    <div class="dashboard-card">
+                        <h2>Pending Reports</h2>
+                        <p id="monthlyPending">0</p>
+                    </div>
+
+                    <div class="dashboard-card">
+                <h2>Resolved Reports</h2>
+                <p id="monthlyResolved">0</p>
+            </div>
+
+            <h2>Incident Categories</h2>
+            <div id="monthlyCategories"></div>
         </div>
-        <span class="tag">RoadAlert Live Updates</span>
+            </section>
+
+
+            <!-- AUTHORITY PANEL -->
+            <section id="authority" class="page">
+                <header class="page-header">
+                    <h1>Authority Panel</h1>
+                    <p>Manage reports submitted by road users.</p>
+                </header>
+
+                <div class="content-card">
+                    <h2>Pending Reports</h2>
+                    <div id="pendingReports" class="report-list"></div>
+                </div>
+
+                <div class="content-card">
+                    <h2>Resolved Reports</h2>
+                    <div id="resolvedReports" class="report-list"></div>
+                </div>
+
+                <div class="content-card">
+                    <h2>All Reports</h2>
+                    <div id="authorityReports" class="report-list"></div>
+                </div>
+            </section>
+
+        </main>
     </div>
 
-    <div class="grid passenger-grid">
-
-        <!-- Route Search -->
-        <div class="card route-search-card">
-            <h3><i class="fa-solid fa-route"></i> Your journey</h3>
-
-            <label class="field" for="from">Starting point</label>
-            <input
-                type="text"
-                id="from"
-                value="Mangaluru, Karnataka"
-                placeholder="Enter starting location"
-                autocomplete="street-address"
-            >
-
-            <label class="field" for="to">Destination</label>
-            <input
-                type="text"
-                id="to"
-                value="Udupi, Karnataka"
-                placeholder="Enter destination"
-                autocomplete="street-address"
-            >
-
-            <button class="btn" id="start" type="button">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                Find Routes & Road Reports
-            </button>
-
-            <div id="alertbox" class="card alert"
-                 style="display:none;margin-top:14px">
-                <span class="tag r">Road Incident Summary</span>
-                <p id="passSummary" style="margin-top:8px">
-                    Loading road reports...
-                </p>
-            </div>
-
-            <p id="routeMessage" class="muted" role="status"
-               aria-live="polite">
-                Enter your journey details to check available routes.
-            </p>
-        </div>
-
-        <!-- Route Results -->
-        <div class="card route-results-card">
-            <div class="section-heading">
-                <div>
-                    <h3>Journey overview</h3>
-                    <p class="muted">Route distance and estimated travel time</p>
-                </div>
-                <i class="fa-solid fa-map-location-dot"></i>
-            </div>
-
-            <div id="routeSummary" class="route-summary">
-                <div class="route-stat">
-                    <span class="muted">Distance</span>
-                    <strong id="routeDistance">--</strong>
-                </div>
-
-                <div class="route-stat">
-                    <span class="muted">Estimated time</span>
-                    <strong id="routeDuration">--</strong>
-                </div>
-
-                <div class="route-stat">
-                    <span class="muted">Road incidents</span>
-                    <strong id="routeIncidentCount">--</strong>
-                </div>
-            </div>
-
-            <div id="routeMap" class="route-map">
-                <div class="map-placeholder">
-                    <i class="fa-solid fa-map-location-dot"></i>
-                    <h3>Your route will appear here</h3>
-                    <p>Search for a journey to view route information.</p>
-                </div>
-            </div>
-
-            <p id="routeNote" class="muted">
-                Route and traffic information will appear after the routing
-                service is connected.
-            </p>
-
-            <button class="btn alt" id="avoid" type="button">
-                <i class="fa-solid fa-code-branch"></i>
-                Compare Alternative Routes
-            </button>
-        </div>
-    </div>
-
-    <!-- Alternative Routes -->
-    <div class="passenger-block">
-        <div class="section-heading">
-            <div>
-                <h3>Alternative routes</h3>
-                <p class="muted">Compare available options for your journey.</p>
-            </div>
-        </div>
-
-        <div id="alternativeRoutes" class="grid">
-            <div class="card">
-                <p class="muted">
-                    Search for a journey to view alternative routes.
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Road Incidents -->
-    <div class="passenger-block">
-        <div class="section-heading">
-            <div>
-                <h3>Road incidents</h3>
-                <p class="muted">
-                    Review community reports before choosing your route.
-                </p>
-            </div>
-
-            <button class="btn alt" id="refreshReports" type="button">
-                <i class="fa-solid fa-rotate"></i> Refresh
-            </button>
-        </div>
-
-        <div id="passReports" class="grid">
-            <div class="card">Loading road reports...</div>
-        </div>
-    </div>
-</section>
-
-
-
-        <section id="rep">
-            <h2>Report a road problem</h2>
-            <div class="grid">
-                <div class="card">
-                    <label class="field" for="reportType">Problem type</label>
-                    <select id="reportType" required>
-                        <option value="" selected disabled>Select a road problem</option>
-                        <option value="Accident">Accident</option>
-                        <option value="Road repair">Road repair / pothole</option>
-                        <option value="Flood">Flood / waterlogging</option>
-                        <option value="Landslide">Landslide</option>
-                        <option value="Festival">Festival / public event</option>
-                        <option value="Strike">Strike</option>
-                        <option value="VIP movement">VIP movement</option>
-                        <option value="Heavy traffic">Heavy traffic</option>
-                        <option value="Road closed">Road closed</option>
-                        <option value="Streetlight">Streetlight problem</option>
-                        <option value="Other">Other</option>
-                    </select>
-                    <label class="field" for="reportTitle">Report title</label>
-                    <input type="text" id="reportTitle" placeholder="e.g. Accident near Mulki" required>
-                    <label class="field" for="reportDescription">Description</label>
-                    <textarea id="reportDescription" placeholder="Describe the road problem"></textarea>
-                    <label class="field" for="reportAddress">Location / address</label>
-                    <input type="text" id="reportAddress" placeholder="e.g. Near State Bank bus stand, Mangaluru"
-                        required>
-                    <button class="btn alt" id="getLocation" type="button">📍 Use my device location</button>
-                    <p id="locationStatus" class="muted" role="status">Enter an address, or use your device location to
-                        fill coordinates.</p>
-                    <details style="margin-top:10px">
-                        <summary style="cursor:pointer;color:var(--sign2)">Enter coordinates manually</summary>
-                        <label class="field" for="reportLat">Latitude</label>
-                        <input type="text" id="reportLat" inputmode="decimal" placeholder="e.g. 12.9716">
-                        <label class="field" for="reportLng">Longitude</label>
-                        <input type="text" id="reportLng" inputmode="decimal" placeholder="e.g. 74.8560">
-                    </details>
-                    <label class="field" for="reportSeverity">Severity</label>
-                    <select id="reportSeverity">
-                        <option value="low">Low</option>
-                        <option value="medium" selected>Medium</option>
-                        <option value="high">High</option>
-                    </select>
-                    <label class="field" for="reporterId">Reported by</label>
-                    <input type="text" id="reporterId" value="community-user" required>
-                    <label class="field" for="reportPhoto">Photo (not uploaded to server yet)</label>
-                    <input type="file" id="reportPhoto" accept="image/*" capture="environment">
-                    <div class="cta"><button class="btn" id="submit" type="button">Submit report</button><button
-                            class="btn alt" id="voice" type="button">Voice report</button></div>
-                    <p class="muted" style="margin-top:8px;font-size:13px">Device location needs browser permission. For
-                        manual locations, enter the address and coordinates in the expandable section. Photo upload is
-                        not connected yet.</p>
-                    <p id="reportMessage" class="status-message" role="status"></p>
-                </div>
-                <div class="card">
-                    <h3>Saved community reports</h3>
-                    <p id="cnt" style="font-size:40px;font-weight:700">0 reports</p>
-                    <div class="lvl" id="lv2"></div>
-                    <button class="btn alt" id="refreshReports" style="margin-top:10px">Refresh reports</button>
-                    <div id="reportList" style="margin-top:14px"></div>
-                </div>
-            </div>
-        </section>
-
-        <section id="emp">
-            <div class="card employee-travel-card">
-  <h2>Employee Travel Dashboard</h2>
-  <p>Register an employee's journey and check available road alerts.</p>
-
-  <form id="employeeTravelForm">
-    <label for="employeeName">Employee name</label>
-    <input id="employeeName" required placeholder="Enter employee name">
-
-    <label for="travelFrom">Starting point</label>
-    <input id="travelFrom" required placeholder="e.g. Mangaluru">
-
-    <label for="travelTo">Destination</label>
-    <input id="travelTo" required placeholder="e.g. Udupi">
-
-    <label for="travelMode">Travel mode</label>
-    <select id="travelMode" required>
-      <option value="Bus">Public transport — Bus</option>
-      <option value="Bike">Own vehicle — Bike</option>
-      <option value="Car">Own vehicle — Car</option>
-    </select>
-
-    <label for="travelStatus">Travel status</label>
-    <select id="travelStatus" required>
-      <option value="Planning">Planning</option>
-      <option value="On the way">On the way</option>
-      <option value="Delayed">Delayed</option>
-      <option value="Completed">Completed</option>
-    </select>
-
-    <button type="submit">Add Employee Journey</button>
-  </form>
-
-  <div class="card">
-    <h3>Road Alerts for This Journey</h3>
-    <div id="employeeRoadAlerts">
-      Submit a journey to check reported road incidents.
-    </div>
-  </div>
-</div>  
-               
-        </section>
-
-        <section id="auth">
-            <h2>Authority dashboard</h2>
-            <div class="grid">
-                <div class="card">
-                    <h3>Demo incidents per month</h3>
-                    <svg viewBox="0 0 320 170" role="img" aria-label="Illustrative incident counts">
-                        <g id="ch"></g>
-                    </svg>
-                    <p><span class="tag a">Illustrative data, not official statistics</span></p>
-                </div>
-                <div class="card">
-                    <h3>Saved report summary</h3>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Category</th>
-                                <th>Reports</th>
-                            </tr>
-                        </thead>
-                        <tbody id="mt"></tbody>
-                    </table>
-                </div>
-                <div class="card" style="grid-column:1/-1">
-                    <h3>Pattern investigation</h3>
-                    <p>Use verified reports over time to investigate recurring problem locations. This demo does not
-                        make official claims or automatically recommend engineering decisions.</p>
-                    <button class="btn" id="gen" style="margin-top:10px">Refresh authority summary</button>
-                    <p id="authMessage" class="status-message" role="status"></p>
-                </div>
-            </div>
-        </section>
-
-        <section id="login" class="on">
-            <div class="card form-card">
-                <h2>Welcome back</h2>
-                <p class="muted" style="margin-bottom:18px">Login to your RoadAlert account.</p>
-                <form id="loginForm">
-                    <label class="field" for="loginEmail">Email address</label>
-                    <input type="email" id="loginEmail" placeholder="you@example.com" required autocomplete="email">
-                    <label class="field" for="loginPassword">Password</label>
-                    <input type="password" id="loginPassword" placeholder="Enter your password" required
-                        autocomplete="current-password">
-                    <button class="btn full" type="submit">Login</button>
-                    <p id="loginMessage" class="status-message" role="status"></p>
-                </form>
-                <p style="margin-top:18px">New to RoadAlert? <button class="btn alt" type="button"
-                        data-go="register">Create account</button></p>
-            </div>
-        </section>
-
-        <section id="register">
-            <div class="card form-card">
-                <h2>Create account</h2>
-                <p class="muted" style="margin-bottom:18px">Join your community and help make roads safer.</p>
-                <form id="registerForm">
-                    <label class="field" for="regName">Full name</label>
-                    <input type="text" id="regName" placeholder="Enter your name" required autocomplete="name">
-                    <label class="field" for="regEmail">Email address</label>
-                    <input type="email" id="regEmail" placeholder="you@example.com" required autocomplete="email">
-                    <label class="field" for="regRole">Account type</label>
-                    <select id="regRole" required>
-                        <option value="passenger">Passenger</option>
-                        <option value="employer">Employer</option>
-                        <option value="authority">Traffic Authority</option>
-                    </select>
-                    <label class="field" for="regPassword">Password</label>
-                    <input type="password" id="regPassword" placeholder="At least 8 characters" minlength="8" required
-                        autocomplete="new-password">
-                    <label class="field" for="regConfirm">Confirm password</label>
-                    <input type="password" id="regConfirm" placeholder="Enter password again" minlength="8" required
-                        autocomplete="new-password">
-                    <button class="btn full" type="submit">Create account</button>
-                    <p id="registerMessage" class="status-message" role="status"></p>
-                </form>
-                <p style="margin-top:18px">Already registered? <button class="btn alt" type="button"
-                        data-go="login">Login</button></p>
-
-            </div>
-        </section>
-    </main>
-    <footer>© 2026 RoadAlert · Community road-safety project.</footer>
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-    <script src="script.js" defer></script>
 </body>
-
 </html>
